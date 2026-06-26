@@ -101,6 +101,15 @@ function refreshFromActivity() {
   refreshState();
 }
 
+function enforceVisibleMatchLocks() {
+  if (!appState) return;
+  const openLatePrediction = [...document.querySelectorAll('input.score[data-kind="prediction"]:not(:disabled)')]
+    .some(input => hasMatchStarted(matchById(input.dataset.match)?.kickoff));
+  if (!openLatePrediction) return;
+  render();
+  refreshState({ force: true });
+}
+
 function lockActiveStartedPrediction() {
   const active = document.activeElement;
   if (!active?.matches?.('input.score[data-kind="prediction"]')) return false;
@@ -124,6 +133,7 @@ events.onerror = () => {
 };
 
 setInterval(refreshState, 3000);
+setInterval(enforceVisibleMatchLocks, 1000);
 document.addEventListener("pointerdown", refreshFromActivity, true);
 document.addEventListener("focusin", refreshFromActivity, true);
 document.addEventListener("keydown", refreshFromActivity, true);
