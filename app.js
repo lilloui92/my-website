@@ -147,7 +147,7 @@ function leaderboard() {
 function renderGroups() {
   const groups = Object.groupBy ? Object.groupBy(appState.matches, m => m.group) : groupBy(appState.matches, m => m.group);
   groupsView.innerHTML = Object.entries(groups).map(([group, matches]) => `
-    <article class="group">
+    <article class="group group-${group}">
       <div class="groupHead">
         <h3>Group ${group}</h3>
         <div class="teams">${(appState.teams[group] || []).map(t => `${t.flag} ${escapeHtml(t.name)}`).join(" - ")}</div>

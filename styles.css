@@ -580,3 +580,16 @@ textarea {
 .match.result-0 .points, .bracketMatch.result-0 .points {
   color: #c1121f;
 }
+
+.group-A .groupHead { background: linear-gradient(135deg, #0f6bdc, #00a878); }
+.group-B .groupHead { background: linear-gradient(135deg, #f72585, #fb8500); }
+.group-C .groupHead { background: linear-gradient(135deg, #6a4cdb, #0f6bdc); }
+.group-D .groupHead { background: linear-gradient(135deg, #008f67, #ffb703); }
+.group-E .groupHead { background: linear-gradient(135deg, #c1121f, #f72585); }
+.group-F .groupHead { background: linear-gradient(135deg, #0077b6, #00b4d8); }
+.group-G .groupHead { background: linear-gradient(135deg, #7b2cbf, #f72585); }
+.group-H .groupHead { background: linear-gradient(135deg, #2d6a4f, #52b788); }
+.group-I .groupHead { background: linear-gradient(135deg, #e85d04, #ffba08); }
+.group-J .groupHead { background: linear-gradient(135deg, #3a0ca3, #4361ee); }
+.group-K .groupHead { background: linear-gradient(135deg, #d00000, #ff7b00); }
+.group-L .groupHead { background: linear-gradient(135deg, #006d77, #83c5be); }
