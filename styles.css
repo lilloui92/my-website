@@ -394,7 +394,17 @@ textarea {
     flex: 1;
   }
 
-  .groups, .bracket, .standings {
+  .groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .bracket {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .standings {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -424,15 +434,15 @@ textarea {
   }
 
   .scoreline {
-    grid-template-columns: minmax(58px, 1fr) auto minmax(58px, 1fr);
-    gap: 5px;
-    font-size: 13px;
+    grid-template-columns: minmax(40px, 1fr) auto minmax(40px, 1fr);
+    gap: 4px;
+    font-size: 12px;
   }
 
   input.score {
-    width: 34px;
-    height: 32px;
-    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
   }
 
   .actual {
@@ -450,13 +460,14 @@ textarea {
   }
 
   .bracketMatch {
-    padding: 8px;
+    padding: 7px;
+    font-size: 12px;
   }
 
   .slot {
-    padding: 4px 6px;
+    padding: 3px 5px;
     margin: 2px 0;
-    font-size: 13px;
+    font-size: 11px;
   }
 
   .knockoutPredict {
@@ -616,7 +627,7 @@ textarea {
 
 .resultRow {
   display: grid;
-  grid-template-columns: minmax(112px, 0.8fr) minmax(180px, 1.3fr) auto;
+  grid-template-columns: 88px minmax(180px, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
@@ -639,14 +650,21 @@ textarea {
   font-size: 14px;
 }
 
-.resultTeams {
+.resultTeamsInline {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(58px, 1fr) auto minmax(58px, 1fr);
+  align-items: center;
   gap: 8px;
   font-weight: 800;
 }
 
-.resultTeams span:last-child {
+.resultTeamsInline span {
+  color: #667784;
+  font-size: 12px;
+  text-align: center;
+}
+
+.resultTeamsInline strong:last-child {
   text-align: right;
 }
 
@@ -673,25 +691,28 @@ textarea {
   }
 
   .resultRow {
-    grid-template-columns: 1fr auto;
-    gap: 6px;
-    padding: 8px;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 7px 6px;
   }
 
   .resultInfo {
-    grid-column: 1 / -1;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 8px;
+    display: grid;
+    gap: 1px;
+    font-size: 10px;
   }
 
-  .resultTeams {
-    grid-template-columns: 1fr;
-    gap: 2px;
-    font-size: 13px;
+  .resultInfo strong {
+    font-size: 12px;
   }
 
-  .resultTeams span:last-child {
-    text-align: left;
+  .resultTeamsInline {
+    grid-template-columns: minmax(42px, 1fr) auto minmax(42px, 1fr);
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .resultTeamsInline span {
+    font-size: 10px;
   }
 }
