@@ -17,6 +17,17 @@ const autoKnockoutList = document.querySelector("#autoKnockoutList");
 
 const monthNumbers = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 
+const lockIcon = "\uD83D\uDD12";
+
+const teamFlags = {
+  MEX: "MX", RSA: "ZA", KOR: "KR", CZE: "CZ", CAN: "CA", BIH: "BA", QAT: "QA", SUI: "CH",
+  BRA: "BR", MAR: "MA", HAI: "HT", SCO: "GB", USA: "US", PAR: "PY", AUS: "AU", TUR: "TR",
+  GER: "DE", CUR: "CW", CIV: "CI", ECU: "EC", NED: "NL", JPN: "JP", SWE: "SE", TUN: "TN",
+  BEL: "BE", EGY: "EG", IRN: "IR", NZL: "NZ", ESP: "ES", CPV: "CV", SAU: "SA", URU: "UY",
+  FRA: "FR", SEN: "SN", IRQ: "IQ", NOR: "NO", ARG: "AR", ALG: "DZ", AUT: "AT", JOR: "JO",
+  POR: "PT", COD: "CD", UZB: "UZ", COL: "CO", ENG: "GB", CRO: "HR", GHA: "GH", PAN: "PA",
+};
+
 const knockoutKickoffs = {
   73: "Jun 28 - 11:00 PM",
   74: "Jun 30 - 12:30 AM",
@@ -207,9 +218,9 @@ function resultEntryRow(match, kind, actual, disabled = false, label = "") {
         <span>${escapeHtml(detail)}</span>
       </div>
       <div class="resultTeamsInline">
-        <strong>${escapeHtml(match.home)}</strong>
+        <strong>${teamName(match.home)}</strong>
         <span>vs</span>
-        <strong>${escapeHtml(match.away)}</strong>
+        <strong>${teamName(match.away)}</strong>
       </div>
       <div class="scoreInputs resultScore">
         <input class="score" data-kind="${kind}" data-match="${match.id}" data-side="home" value="${escapeHtml(actual.home)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
@@ -228,7 +239,7 @@ function renderMatch(match) {
   const disabled = done || resultMode || started;
   const points = pointsFor(selectedPlayer, match);
   const resultClass = done ? ` result-${points}` : "";
-  const pointText = done ? `${points} pt${points === 1 ? "" : "s"}` : started ? "locked" : "pending";
+  const pointText = done ? `${lockIcon} ${points} pt${points === 1 ? "" : "s"}` : started ? `${lockIcon} locked` : "TBD";
   return `
     <div class="match${resultClass}">
       <div class="matchMeta">
@@ -236,13 +247,13 @@ function renderMatch(match) {
         <span>${escapeHtml(match.kickoff)}</span>
       </div>
       <div class="scoreline">
-        <strong>${escapeHtml(match.home)}</strong>
+        <strong>${teamName(match.home)}</strong>
         <div class="scoreInputs">
           <input class="score" data-kind="prediction" data-match="${match.id}" data-side="home" value="${escapeHtml(prediction.home)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
           <span>:</span>
           <input class="score" data-kind="prediction" data-match="${match.id}" data-side="away" value="${escapeHtml(prediction.away)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
         </div>
-        <strong class="teamRight">${escapeHtml(match.away)}</strong>
+        <strong class="teamRight">${teamName(match.away)}</strong>
       </div>
       <div class="actual">
         <span>Actual: ${done ? `${actual.home} - ${actual.away}` : "TBD"}</span>
@@ -347,18 +358,18 @@ function renderKnockoutMatch(match) {
   const predictionDisabled = !ready || done || resultMode || started;
   const points = pointsFor(selectedPlayer, match, result);
   const resultClass = done ? ` result-${points}` : "";
-  const pointText = done ? `${points} pt${points === 1 ? "" : "s"}` : ready && !started ? "predict now" : started ? "locked" : "waiting";
+  const pointText = done ? `${lockIcon} ${points} pt${points === 1 ? "" : "s"}` : ready && !started ? "TBD" : started ? `${lockIcon} locked` : "TBD";
   return `
     <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}${resultClass}">
       <strong>Match ${match.id}</strong>
       <div class="matchMeta knockoutMeta"><span>${escapeHtml(match.kickoff || "Time TBD")}</span></div>
-      <span class="slot ${homeKnown ? "known" : "unknown"}">${escapeHtml(match.home)}</span>
+      <span class="slot ${homeKnown ? "known" : "unknown"}">${teamName(match.home)}</span>
       <div class="scoreInputs knockoutPredict">
         <input class="score" data-kind="prediction" data-match="${match.id}" data-side="home" value="${escapeHtml(prediction.home)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
         <span class="versus">:</span>
         <input class="score" data-kind="prediction" data-match="${match.id}" data-side="away" value="${escapeHtml(prediction.away)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
       </div>
-      <span class="slot ${awayKnown ? "known" : "unknown"}">${escapeHtml(match.away)}</span>
+      <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       <div class="actual knockoutActual">
         <span>Actual: ${done ? `${result.home} - ${result.away}` : "TBD"}</span>
         <span class="points">${pointText}</span>
@@ -548,6 +559,18 @@ function groupBy(items, keyFn) {
     acc[key].push(item);
     return acc;
   }, {});
+}
+
+function flagEmoji(countryCode) {
+  if (!countryCode) return "";
+  return countryCode.toUpperCase().replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+function teamName(team) {
+  const text = String(team ?? "");
+  if (text.startsWith("TBD")) return escapeHtml(text);
+  const flag = flagEmoji(teamFlags[text]);
+  return `${flag ? `${flag} ` : ""}${escapeHtml(text)}`;
 }
 
 function escapeHtml(value) {
