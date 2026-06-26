@@ -161,6 +161,10 @@ function render() {
   bindKnockoutInputs();
 }
 
+function compareMatchTime(a, b) {
+  return (kickoffToUtcMs(a.kickoff) ?? Number.MAX_SAFE_INTEGER) - (kickoffToUtcMs(b.kickoff) ?? Number.MAX_SAFE_INTEGER) || a.id - b.id;
+}
+
 function hasMatchStarted(kickoff) {
   const startedAt = kickoffToUtcMs(kickoff);
   return startedAt !== null && Date.now() >= startedAt;
@@ -215,13 +219,13 @@ function renderResultEntry() {
   }
 
   const groupRows = [...appState.matches]
-    .sort((a, b) => a.id - b.id)
+    .sort(compareMatchTime)
     .map(match => resultEntryRow(match, "result", appState.actuals[String(match.id)] || { home: "", away: "" }))
     .join("");
 
   const knockoutRows = getKnockoutRounds(getStandings())
     .flatMap(round => round.matches.map(match => ({ ...match, round: round.name })))
-    .sort((a, b) => a.id - b.id)
+    .sort(compareMatchTime)
     .map(match => {
       const result = appState.knockoutResults[String(match.id)] || { home: "", away: "" };
       const disabled = match.home.startsWith("TBD") || match.away.startsWith("TBD");
