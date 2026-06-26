@@ -22,6 +22,60 @@ body {
     #eef7ff;
 }
 
+
+.startScreen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(15, 107, 220, 0.20), rgba(0, 168, 120, 0.18) 42%, rgba(247, 37, 133, 0.14)),
+    #eef7ff;
+}
+
+.startPanel {
+  width: min(420px, 100%);
+  border: 1px solid #c9e1f4;
+  border-radius: 8px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 34px rgba(15, 107, 220, 0.16);
+}
+
+.startPanel h1 {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.startPanel p {
+  margin-top: 6px;
+  color: #52616c;
+  font-weight: 700;
+}
+
+.playerStartList {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.playerStartList button {
+  min-height: 48px;
+  border-color: #9ec8e6;
+  background: linear-gradient(135deg, #ffffff, #eef7ff);
+  color: #17202a;
+  font-size: 18px;
+}
+
+.playerStartList button:active {
+  transform: translateY(1px);
+}
+
+.needsPlayer .topbar,
+.needsPlayer main {
+  display: none;
+}
+
 .topbar {
   display: flex;
   align-items: center;

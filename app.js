@@ -1,10 +1,13 @@
 let appState;
-let selectedPlayer = localStorage.getItem("selectedPlayer") || "Louay";
+let selectedPlayer = localStorage.getItem("selectedPlayer") || "";
 let resultMode = false;
 let stage = "groups";
 const saveTimers = new Map();
 let pendingRemoteState = null;
+let lockTimer = null;
 
+const startScreen = document.querySelector("#startScreen");
+const playerStartList = document.querySelector("#playerStartList");
 const playerSelect = document.querySelector("#playerSelect");
 const leaderboardEl = document.querySelector("#leaderboard");
 const groupsView = document.querySelector("#groupsView");
@@ -135,7 +138,7 @@ async function post(url, body, options = {}) {
 
 function applyState(state) {
   appState = state;
-  if (!appState.players.includes(selectedPlayer)) selectedPlayer = appState.players[0];
+  if (selectedPlayer && !appState.players.includes(selectedPlayer)) selectedPlayer = "";
   render();
 }
 
@@ -146,8 +149,10 @@ function isEditingScore() {
 function render() {
   if (!appState) return;
   appState.knockoutResults ||= {};
-  playerSelect.innerHTML = appState.players.map(p => `<option value="${p}">${p}</option>`).join("");
-  playerSelect.value = selectedPlayer;
+  renderStartScreen();
+  scheduleNextKickoffLock();
+  playerSelect.innerHTML = appState.players.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+  playerSelect.value = selectedPlayer || appState.players[0];
   resultModeButton.classList.toggle("active", resultMode);
   resultModeButton.textContent = resultMode ? "Close results" : "Enter results";
   document.querySelectorAll(".tabs button").forEach(button => button.classList.toggle("active", button.dataset.stage === stage));
@@ -159,6 +164,43 @@ function render() {
   renderKnockout();
   bindScoreInputs();
   bindKnockoutInputs();
+}
+
+function renderStartScreen() {
+  const needsPlayer = !selectedPlayer;
+  document.body.classList.toggle("needsPlayer", needsPlayer);
+  startScreen.classList.toggle("hidden", !needsPlayer);
+  playerStartList.innerHTML = appState.players.map(player => `<button type="button" data-player="${escapeHtml(player)}">${escapeHtml(player)}</button>`).join("");
+  playerStartList.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => {
+      selectedPlayer = button.dataset.player;
+      localStorage.setItem("selectedPlayer", selectedPlayer);
+      render();
+    });
+  });
+}
+
+function scheduleNextKickoffLock() {
+  clearTimeout(lockTimer);
+  const matches = [
+    ...appState.matches,
+    ...getKnockoutRounds(getStandings()).flatMap(round => round.matches),
+  ];
+  const nextTime = matches
+    .map(match => kickoffToUtcMs(match.kickoff))
+    .filter(time => time !== null && time > Date.now())
+    .sort((a, b) => a - b)[0];
+  if (!nextTime) return;
+  const delay = Math.min(nextTime - Date.now() + 50, 2_147_483_647);
+  lockTimer = setTimeout(() => {
+    const active = document.activeElement;
+    if (active?.matches?.('input.score') && active.dataset.kind !== 'prediction') {
+      scheduleNextKickoffLock();
+      return;
+    }
+    render();
+    refreshState();
+  }, delay);
 }
 
 function compareMatchTime(a, b) {
@@ -350,6 +392,11 @@ function bindScoreInputs() {
   });
 }
 
+function matchById(matchId) {
+  return appState.matches.find(match => String(match.id) === String(matchId)) ||
+    getKnockoutRounds(getStandings()).flatMap(round => round.matches).find(match => String(match.id) === String(matchId));
+}
+
 function scheduleScoreSave(kind, matchId) {
   const key = kind + ":" + matchId;
   clearTimeout(saveTimers.get(key));
@@ -361,6 +408,11 @@ async function saveScore(kind, matchId, renderAfterSave = false) {
   const homeField = fields.find(field => field.dataset.side === "home");
   const awayField = fields.find(field => field.dataset.side === "away");
   if (!homeField || !awayField) return;
+  if (kind === "prediction" && hasMatchStarted(matchById(matchId)?.kickoff)) {
+    render();
+    alert("This match already started");
+    return;
+  }
   const home = homeField.value;
   const away = awayField.value;
   if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away }, { render: renderAfterSave });
