@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Family World Cup Predictions</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>FIFA World Cup 2026</h1>
+        <p>Family Prediction Competition • Party X972GK • UAE time</p>
+      </div>
+      <div class="toolbar">
+        <label>
+          Playing as
+          <select id="playerSelect"></select>
+        </label>
+        <button id="resultMode" type="button">Enter results</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Leaderboard</h2>
+        <div id="leaderboard" class="leaderboard"></div>
+      </section>
+
+      <section class="panel sharePanel">
+        <h2>Share</h2>
+        <div id="shareLinks" class="shareLinks"></div>
+      </section>
+
+      <nav class="tabs" aria-label="Stage">
+        <button class="active" data-stage="groups" type="button">Group Stage</button>
+        <button data-stage="knockout" type="button">Knockout Stage</button>
+      </nav>
+
+      <section id="groupsView" class="groups"></section>
+      <section id="knockoutView" class="knockout hidden">
+        <div class="panel">
+          <h2>Live Knockout Stage</h2>
+          <p class="muted">Generated from the group standings as real scores are entered.</p>
+          <div id="standingsView" class="standings"></div>
+          <h3>Knockout Predictions</h3>
+          <div id="autoKnockoutList" class="bracket"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

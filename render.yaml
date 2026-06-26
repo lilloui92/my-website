@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: family-world-cup-predictions
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: family-world-cup-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: STATE_PATH
+        value: /data/state.json
