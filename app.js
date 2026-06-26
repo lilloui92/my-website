@@ -2,6 +2,7 @@ let appState;
 let selectedPlayer = localStorage.getItem("selectedPlayer") || "Louay";
 let resultMode = false;
 let stage = "groups";
+const saveTimers = new Map();
 
 const playerSelect = document.querySelector("#playerSelect");
 const leaderboardEl = document.querySelector("#leaderboard");
@@ -63,17 +64,26 @@ const knockoutKickoffs = {
   104: "Jul 19 - 11:00 PM",
 };
 
-fetch("/api/state").then(r => r.json()).then(state => {
+refreshState();
+
+async function refreshState() {
+  const state = await fetch("/api/state").then(response => response.json());
   appState = state;
   if (!appState.players.includes(selectedPlayer)) selectedPlayer = appState.players[0];
   render();
-});
+}
 
 const events = new EventSource("/events");
 events.onmessage = event => {
   appState = JSON.parse(event.data);
   render();
 };
+
+events.onerror = () => {
+  setTimeout(refreshState, 1000);
+};
+
+setInterval(refreshState, 10000);
 
 playerSelect.addEventListener("change", () => {
   selectedPlayer = playerSelect.value;
@@ -107,9 +117,17 @@ async function post(url, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!response.ok) alert((await response.json()).error || "Could not save");
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    alert(data?.error || "Could not save");
+    return null;
+  }
+  if (data) {
+    appState = data;
+    render();
+  }
+  return data;
 }
-
 function render() {
   if (!appState) return;
   appState.knockoutResults ||= {};
@@ -286,22 +304,32 @@ function revealPredictions(match) {
 }
 
 function bindScoreInputs() {
-  document.querySelectorAll('input.score[data-kind="prediction"], input.score[data-kind="result"]').forEach(input => {
+  document.querySelectorAll("input.score").forEach(input => {
     input.addEventListener("input", () => {
       input.value = input.value.replace(/\D/g, "").slice(0, 2);
+      scheduleScoreSave(input.dataset.kind, input.dataset.match);
     });
-    input.addEventListener("change", async () => {
-      const matchId = input.dataset.match;
-      const kind = input.dataset.kind;
-      const fields = [...document.querySelectorAll(`input.score[data-kind="${kind}"][data-match="${matchId}"]`)];
-      const home = fields.find(f => f.dataset.side === "home").value;
-      const away = fields.find(f => f.dataset.side === "away").value;
-      if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away });
-      if (kind === "result") await post("/api/result", { matchId, home, away });
-    });
+    input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match));
   });
 }
 
+function scheduleScoreSave(kind, matchId) {
+  const key = kind + ":" + matchId;
+  clearTimeout(saveTimers.get(key));
+  saveTimers.set(key, setTimeout(() => saveScore(kind, matchId), 450));
+}
+
+async function saveScore(kind, matchId) {
+  const fields = [...document.querySelectorAll(`input.score[data-kind="${kind}"][data-match="${matchId}"]`)];
+  const homeField = fields.find(field => field.dataset.side === "home");
+  const awayField = fields.find(field => field.dataset.side === "away");
+  if (!homeField || !awayField) return;
+  const home = homeField.value;
+  const away = awayField.value;
+  if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away });
+  if (kind === "result") await post("/api/result", { matchId, home, away });
+  if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away });
+}
 function pointsFor(player, match, actualOverride) {
   const pred = appState.predictions[player]?.[match.id] || {};
   const actual = actualOverride || appState.actuals[String(match.id)] || {};
@@ -392,18 +420,6 @@ function knockoutResultInputs(match, result, ready) {
 }
 
 function bindKnockoutInputs() {
-  document.querySelectorAll('input.score[data-kind="knockout-result"]').forEach(input => {
-    input.addEventListener("input", () => {
-      input.value = input.value.replace(/\D/g, "").slice(0, 2);
-    });
-    input.addEventListener("change", async () => {
-      const matchId = input.dataset.match;
-      const fields = [...document.querySelectorAll(`input.score[data-kind="knockout-result"][data-match="${matchId}"]`)];
-      const home = fields.find(f => f.dataset.side === "home").value;
-      const away = fields.find(f => f.dataset.side === "away").value;
-      await post("/api/knockout-result", { matchId, home, away });
-    });
-  });
 }
 
 function getStandings() {
