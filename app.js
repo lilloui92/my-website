@@ -5,6 +5,8 @@ let stage = "groups";
 const saveTimers = new Map();
 let pendingRemoteState = null;
 let lockTimer = null;
+let refreshInFlight = null;
+let lastRefreshAt = 0;
 
 const startScreen = document.querySelector("#startScreen");
 const playerStartList = document.querySelector("#playerStartList");
@@ -68,12 +70,42 @@ const knockoutKickoffs = {
   104: "Jul 19 - 11:00 PM",
 };
 
-refreshState();
+refreshState({ force: true });
 
-async function refreshState() {
-  if (isEditingScore()) return;
-  const state = await fetch("/api/state").then(response => response.json());
-  applyState(state);
+async function refreshState(options = {}) {
+  const now = Date.now();
+  const minimumGap = options.force ? 0 : 900;
+  if (refreshInFlight) return refreshInFlight;
+  if (now - lastRefreshAt < minimumGap) return null;
+  lastRefreshAt = now;
+  refreshInFlight = fetch("/api/state")
+    .then(response => response.json())
+    .then(state => {
+      if (isEditingScore() && !options.forceRender) {
+        pendingRemoteState = state;
+        return state;
+      }
+      applyState(state);
+      return state;
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
+function refreshFromActivity() {
+  if (lockActiveStartedPrediction()) return;
+  refreshState();
+}
+
+function lockActiveStartedPrediction() {
+  const active = document.activeElement;
+  if (!active?.matches?.('input.score[data-kind="prediction"]')) return false;
+  if (!hasMatchStarted(matchById(active.dataset.match)?.kickoff)) return false;
+  render();
+  return true;
 }
 
 const events = new EventSource("/events");
@@ -90,7 +122,15 @@ events.onerror = () => {
   setTimeout(refreshState, 1000);
 };
 
-setInterval(refreshState, 10000);
+setInterval(refreshState, 3000);
+document.addEventListener("pointerdown", refreshFromActivity, true);
+document.addEventListener("focusin", refreshFromActivity, true);
+document.addEventListener("keydown", refreshFromActivity, true);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshState({ force: true });
+});
+window.addEventListener("focus", () => refreshState({ force: true }));
+window.addEventListener("online", () => refreshState({ force: true }));
 
 playerSelect.addEventListener("change", () => {
   selectedPlayer = playerSelect.value;
