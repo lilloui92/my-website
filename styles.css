@@ -564,21 +564,6 @@ textarea {
   font-weight: 700;
 }
 
-.match.result-2, .bracketMatch.result-2 {
-  border-left: 5px solid rgba(0, 168, 120, 0.9);
-  background: linear-gradient(90deg, rgba(0, 168, 120, 0.07), rgba(255, 255, 255, 0.98));
-}
-
-.match.result-1, .bracketMatch.result-1 {
-  border-left: 5px solid rgba(255, 183, 3, 0.95);
-  background: linear-gradient(90deg, rgba(255, 183, 3, 0.08), rgba(255, 255, 255, 0.98));
-}
-
-.match.result-0, .bracketMatch.result-0 {
-  border-left: 5px solid rgba(230, 57, 70, 0.8);
-  background: linear-gradient(90deg, rgba(230, 57, 70, 0.06), rgba(255, 255, 255, 0.98));
-}
-
 .match.result-2 .points, .bracketMatch.result-2 .points {
   color: #008f67;
 }
