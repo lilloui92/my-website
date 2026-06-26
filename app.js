@@ -220,7 +220,7 @@ function renderResultEntry() {
 
   const groupRows = [...appState.matches]
     .sort(compareMatchTime)
-    .map(match => resultEntryRow(match, "result", appState.actuals[String(match.id)] || { home: "", away: "" }))
+    .map((match, index) => resultEntryRow(match, "result", appState.actuals[String(match.id)] || { home: "", away: "" }, false, "", index + 1))
     .join("");
 
   const knockoutRows = getKnockoutRounds(getStandings())
@@ -229,7 +229,7 @@ function renderResultEntry() {
     .map(match => {
       const result = appState.knockoutResults[String(match.id)] || { home: "", away: "" };
       const disabled = match.home.startsWith("TBD") || match.away.startsWith("TBD");
-      return resultEntryRow(match, "knockout-result", result, disabled, match.round);
+      return resultEntryRow(match, "knockout-result", result, disabled, match.round, match.id - 72);
     })
     .join("");
 
@@ -245,13 +245,13 @@ function renderResultEntry() {
   `;
 }
 
-function resultEntryRow(match, kind, actual, disabled = false, label = "") {
+function resultEntryRow(match, kind, actual, disabled = false, label = "", displayNumber = match.id) {
   const done = actual.home !== "" && actual.away !== "";
-  const detail = label || `M${match.id} - ${match.kickoff || "Time TBD"}`;
+  const detail = label ? `${label} - ${match.kickoff || "Time TBD"}` : (match.kickoff || "Time TBD");
   return `
     <div class="resultRow ${done ? "resultDone" : ""} ${disabled ? "resultDisabled" : ""}">
       <div class="resultInfo">
-        <strong>M${match.id}</strong>
+        <strong>#${displayNumber}</strong>
         <span>${escapeHtml(detail)}</span>
       </div>
       <div class="resultTeamsInline">
