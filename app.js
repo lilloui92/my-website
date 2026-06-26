@@ -3,6 +3,7 @@ let selectedPlayer = localStorage.getItem("selectedPlayer") || "Louay";
 let resultMode = false;
 let stage = "groups";
 const saveTimers = new Map();
+let pendingRemoteState = null;
 
 const playerSelect = document.querySelector("#playerSelect");
 const leaderboardEl = document.querySelector("#leaderboard");
@@ -67,16 +68,19 @@ const knockoutKickoffs = {
 refreshState();
 
 async function refreshState() {
+  if (isEditingScore()) return;
   const state = await fetch("/api/state").then(response => response.json());
-  appState = state;
-  if (!appState.players.includes(selectedPlayer)) selectedPlayer = appState.players[0];
-  render();
+  applyState(state);
 }
 
 const events = new EventSource("/events");
 events.onmessage = event => {
-  appState = JSON.parse(event.data);
-  render();
+  const state = JSON.parse(event.data);
+  if (isEditingScore()) {
+    pendingRemoteState = state;
+    return;
+  }
+  applyState(state);
 };
 
 events.onerror = () => {
@@ -111,7 +115,7 @@ if (saveKnockoutButton) {
   });
 }
 
-async function post(url, body) {
+async function post(url, body, options = {}) {
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -124,10 +128,21 @@ async function post(url, body) {
   }
   if (data) {
     appState = data;
-    render();
+    if (options.render !== false && !isEditingScore()) render();
   }
   return data;
 }
+
+function applyState(state) {
+  appState = state;
+  if (!appState.players.includes(selectedPlayer)) selectedPlayer = appState.players[0];
+  render();
+}
+
+function isEditingScore() {
+  return document.activeElement?.matches?.("input.score");
+}
+
 function render() {
   if (!appState) return;
   appState.knockoutResults ||= {};
@@ -309,7 +324,15 @@ function bindScoreInputs() {
       input.value = input.value.replace(/\D/g, "").slice(0, 2);
       scheduleScoreSave(input.dataset.kind, input.dataset.match);
     });
-    input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match));
+    input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match, true));
+    input.addEventListener("blur", () => {
+      saveScore(input.dataset.kind, input.dataset.match, true);
+      if (pendingRemoteState) {
+        const state = pendingRemoteState;
+        pendingRemoteState = null;
+        setTimeout(() => applyState(state), 0);
+      }
+    });
   });
 }
 
@@ -319,16 +342,16 @@ function scheduleScoreSave(kind, matchId) {
   saveTimers.set(key, setTimeout(() => saveScore(kind, matchId), 450));
 }
 
-async function saveScore(kind, matchId) {
+async function saveScore(kind, matchId, renderAfterSave = false) {
   const fields = [...document.querySelectorAll(`input.score[data-kind="${kind}"][data-match="${matchId}"]`)];
   const homeField = fields.find(field => field.dataset.side === "home");
   const awayField = fields.find(field => field.dataset.side === "away");
   if (!homeField || !awayField) return;
   const home = homeField.value;
   const away = awayField.value;
-  if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away });
-  if (kind === "result") await post("/api/result", { matchId, home, away });
-  if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away });
+  if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away }, { render: renderAfterSave });
+  if (kind === "result") await post("/api/result", { matchId, home, away }, { render: renderAfterSave });
+  if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away }, { render: renderAfterSave });
 }
 function pointsFor(player, match, actualOverride) {
   const pred = appState.predictions[player]?.[match.id] || {};
