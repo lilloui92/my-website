@@ -164,9 +164,11 @@ function renderMatch(match) {
   const done = actual.home !== "" && actual.away !== "";
   const started = hasMatchStarted(match.kickoff);
   const disabled = done || resultMode || started;
-  const pointText = done ? `${pointsFor(selectedPlayer, match)} pt${pointsFor(selectedPlayer, match) === 1 ? "" : "s"}` : started ? "locked" : "pending";
+  const points = pointsFor(selectedPlayer, match);
+  const resultClass = done ? ` result-${points}` : "";
+  const pointText = done ? `${points} pt${points === 1 ? "" : "s"}` : started ? "locked" : "pending";
   return `
-    <div class="match">
+    <div class="match${resultClass}">
       <div class="matchMeta">
         <span>Match ${match.id}</span>
         <span>${escapeHtml(match.kickoff)}</span>
@@ -283,9 +285,11 @@ function renderKnockoutMatch(match) {
   const done = ready && result.home !== "" && result.away !== "" && result.home !== result.away;
   const started = hasMatchStarted(match.kickoff);
   const predictionDisabled = !ready || done || resultMode || started;
-  const pointText = done ? `${pointsFor(selectedPlayer, match, result)} pt${pointsFor(selectedPlayer, match, result) === 1 ? "" : "s"}` : ready && !started ? "predict now" : started ? "locked" : "waiting";
+  const points = pointsFor(selectedPlayer, match, result);
+  const resultClass = done ? ` result-${points}` : "";
+  const pointText = done ? `${points} pt${points === 1 ? "" : "s"}` : ready && !started ? "predict now" : started ? "locked" : "waiting";
   return `
-    <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}">
+    <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}${resultClass}">
       <strong>Match ${match.id}</strong>
       <div class="matchMeta knockoutMeta"><span>${escapeHtml(match.kickoff || "Time TBD")}</span></div>
       <span class="slot ${homeKnown ? "known" : "unknown"}">${escapeHtml(match.home)}</span>
