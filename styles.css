@@ -564,6 +564,18 @@ textarea {
   font-weight: 700;
 }
 
+.match.result-2, .bracketMatch.result-2 {
+  box-shadow: inset 0 0 0 2px rgba(0, 168, 120, 0.45);
+}
+
+.match.result-1, .bracketMatch.result-1 {
+  box-shadow: inset 0 0 0 2px rgba(255, 183, 3, 0.50);
+}
+
+.match.result-0, .bracketMatch.result-0 {
+  box-shadow: inset 0 0 0 2px rgba(230, 57, 70, 0.38);
+}
+
 .match.result-2 .points, .bracketMatch.result-2 .points {
   color: #008f67;
 }
