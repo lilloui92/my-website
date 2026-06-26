@@ -204,7 +204,7 @@ function resultInputs(match, actual) {
 
 function revealPredictions(match) {
   return `<div class="reveal">${
-    appState.players.map(player => {
+    appState.players.filter(player => player !== selectedPlayer).map(player => {
       const pred = appState.predictions[player]?.[match.id] || { home: "", away: "" };
       const shown = pred.home !== "" && pred.away !== "" ? `${pred.home}-${pred.away}` : "--";
       return `${escapeHtml(player)}: ${shown}`;
