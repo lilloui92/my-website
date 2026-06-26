@@ -1,5 +1,6 @@
 let appState;
-let selectedPlayer = localStorage.getItem("selectedPlayer") || "";
+try { localStorage.removeItem("selectedPlayer"); } catch {}
+let selectedPlayer = "";
 let resultMode = false;
 let stage = "groups";
 const saveTimers = new Map();
@@ -134,7 +135,6 @@ window.addEventListener("online", () => refreshState({ force: true }));
 
 playerSelect.addEventListener("change", () => {
   selectedPlayer = playerSelect.value;
-  localStorage.setItem("selectedPlayer", selectedPlayer);
   render();
 });
 
@@ -214,7 +214,6 @@ function renderStartScreen() {
   playerStartList.querySelectorAll("button").forEach(button => {
     button.addEventListener("click", () => {
       selectedPlayer = button.dataset.player;
-      localStorage.setItem("selectedPlayer", selectedPlayer);
       render();
     });
   });
