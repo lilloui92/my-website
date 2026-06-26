@@ -593,3 +593,105 @@ textarea {
 .group-J .groupHead { background: linear-gradient(135deg, #3a0ca3, #4361ee); }
 .group-K .groupHead { background: linear-gradient(135deg, #d00000, #ff7b00); }
 .group-L .groupHead { background: linear-gradient(135deg, #006d77, #83c5be); }
+
+.resultEntryList {
+  display: grid;
+  gap: 12px;
+}
+
+.resultSection {
+  border: 1px solid #c9e1f4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.resultSection h3 {
+  margin: 0;
+  padding: 9px 10px;
+  background: linear-gradient(135deg, #0f6bdc, #00a878);
+  color: white;
+  font-size: 16px;
+}
+
+.resultRow {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.8fr) minmax(180px, 1.3fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-top: 1px solid #edf1f4;
+}
+
+.resultRow:first-of-type {
+  border-top: 0;
+}
+
+.resultInfo {
+  display: grid;
+  gap: 2px;
+  color: #53616c;
+  font-size: 12px;
+}
+
+.resultInfo strong {
+  color: #17202a;
+  font-size: 14px;
+}
+
+.resultTeams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.resultTeams span:last-child {
+  text-align: right;
+}
+
+.resultScore {
+  justify-content: end;
+}
+
+.resultDone {
+  background: linear-gradient(90deg, rgba(0, 168, 120, 0.10), #ffffff);
+}
+
+.resultDisabled {
+  opacity: 0.68;
+}
+
+@media (max-width: 720px) {
+  .resultEntryList {
+    gap: 8px;
+  }
+
+  .resultSection h3 {
+    padding: 8px;
+    font-size: 15px;
+  }
+
+  .resultRow {
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .resultInfo {
+    grid-column: 1 / -1;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .resultTeams {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    font-size: 13px;
+  }
+
+  .resultTeams span:last-child {
+    text-align: left;
+  }
+}

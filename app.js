@@ -8,6 +8,8 @@ const leaderboardEl = document.querySelector("#leaderboard");
 const groupsView = document.querySelector("#groupsView");
 const knockoutView = document.querySelector("#knockoutView");
 const resultModeButton = document.querySelector("#resultMode");
+const resultEntryPanel = document.querySelector("#resultEntryPanel");
+const resultEntryList = document.querySelector("#resultEntryList");
 const knockoutEditor = document.querySelector("#knockoutEditor");
 const knockoutList = document.querySelector("#knockoutList");
 const standingsView = document.querySelector("#standingsView");
@@ -103,13 +105,16 @@ function render() {
   playerSelect.innerHTML = appState.players.map(p => `<option value="${p}">${p}</option>`).join("");
   playerSelect.value = selectedPlayer;
   resultModeButton.classList.toggle("active", resultMode);
-  resultModeButton.textContent = resultMode ? "Result mode on" : "Enter results";
+  resultModeButton.textContent = resultMode ? "Close results" : "Enter results";
   document.querySelectorAll(".tabs button").forEach(button => button.classList.toggle("active", button.dataset.stage === stage));
   groupsView.classList.toggle("hidden", stage !== "groups");
   knockoutView.classList.toggle("hidden", stage !== "knockout");
   renderLeaderboard();
+  renderResultEntry();
   renderGroups();
   renderKnockout();
+  bindScoreInputs();
+  bindKnockoutInputs();
 }
 
 function hasMatchStarted(kickoff) {
@@ -155,7 +160,57 @@ function renderGroups() {
       ${matches.map(renderMatch).join("")}
     </article>
   `).join("");
-  bindScoreInputs();
+}
+
+function renderResultEntry() {
+  if (!resultEntryPanel || !resultEntryList) return;
+  resultEntryPanel.classList.toggle("hidden", !resultMode);
+  if (!resultMode) {
+    resultEntryList.innerHTML = "";
+    return;
+  }
+
+  const groups = Object.groupBy ? Object.groupBy(appState.matches, m => m.group) : groupBy(appState.matches, m => m.group);
+  const groupSections = Object.entries(groups).map(([group, matches]) => `
+    <section class="resultSection resultSection-${group}">
+      <h3>Group ${group}</h3>
+      ${matches.map(match => resultEntryRow(match, "result", appState.actuals[String(match.id)] || { home: "", away: "" })).join("")}
+    </section>
+  `).join("");
+
+  const knockoutSections = getKnockoutRounds(getStandings()).map(round => `
+    <section class="resultSection">
+      <h3>${round.name}</h3>
+      ${round.matches.map(match => {
+        const result = appState.knockoutResults[String(match.id)] || { home: "", away: "" };
+        const disabled = match.home.startsWith("TBD") || match.away.startsWith("TBD");
+        return resultEntryRow(match, "knockout-result", result, disabled);
+      }).join("")}
+    </section>
+  `).join("");
+
+  resultEntryList.innerHTML = groupSections + knockoutSections;
+}
+
+function resultEntryRow(match, kind, actual, disabled = false) {
+  const done = actual.home !== "" && actual.away !== "";
+  return `
+    <div class="resultRow ${done ? "resultDone" : ""} ${disabled ? "resultDisabled" : ""}">
+      <div class="resultInfo">
+        <strong>M${match.id}</strong>
+        <span>${escapeHtml(match.kickoff || "Time TBD")}</span>
+      </div>
+      <div class="resultTeams">
+        <span>${escapeHtml(match.home)}</span>
+        <span>${escapeHtml(match.away)}</span>
+      </div>
+      <div class="scoreInputs resultScore">
+        <input class="score" data-kind="${kind}" data-match="${match.id}" data-side="home" value="${escapeHtml(actual.home)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
+        <span>:</span>
+        <input class="score" data-kind="${kind}" data-match="${match.id}" data-side="away" value="${escapeHtml(actual.away)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
+      </div>
+    </div>
+  `;
 }
 
 function renderMatch(match) {
@@ -183,7 +238,7 @@ function renderMatch(match) {
         <strong class="teamRight">${escapeHtml(match.away)}</strong>
       </div>
       <div class="actual">
-        ${resultMode ? resultInputs(match, actual) : `<span>Actual: ${done ? `${actual.home} - ${actual.away}` : "TBD"}</span>`}
+        <span>Actual: ${done ? `${actual.home} - ${actual.away}` : "TBD"}</span>
         <span class="points">${pointText}</span>
       </div>
       ${done ? revealPredictions(match) : ""}
@@ -213,7 +268,7 @@ function revealPredictions(match) {
 }
 
 function bindScoreInputs() {
-  document.querySelectorAll("input.score").forEach(input => {
+  document.querySelectorAll('input.score[data-kind="prediction"], input.score[data-kind="result"]').forEach(input => {
     input.addEventListener("input", () => {
       input.value = input.value.replace(/\D/g, "").slice(0, 2);
     });
@@ -267,8 +322,6 @@ function renderKnockout() {
       </div>
     </section>
   `).join("");
-  bindScoreInputs();
-  bindKnockoutInputs();
   if (knockoutEditor && knockoutList) {
     const lines = appState.knockout || [];
     knockoutEditor.value = lines.join("\n");
@@ -300,7 +353,7 @@ function renderKnockoutMatch(match) {
       </div>
       <span class="slot ${awayKnown ? "known" : "unknown"}">${escapeHtml(match.away)}</span>
       <div class="actual knockoutActual">
-        ${resultMode ? knockoutResultInputs(match, result, ready) : `<span>Actual: ${done ? `${result.home} - ${result.away}` : "TBD"}</span>`}
+        <span>Actual: ${done ? `${result.home} - ${result.away}` : "TBD"}</span>
         <span class="points">${pointText}</span>
       </div>
       <small>${done ? `Winner: ${escapeHtml(winnerOf(match))}` : ready && !started ? "Ready for predictions" : started ? "Kickoff passed" : "Waiting for confirmed team"}</small>
