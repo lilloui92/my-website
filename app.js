@@ -12,7 +12,6 @@ const knockoutEditor = document.querySelector("#knockoutEditor");
 const knockoutList = document.querySelector("#knockoutList");
 const standingsView = document.querySelector("#standingsView");
 const autoKnockoutList = document.querySelector("#autoKnockoutList");
-const shareLinks = document.querySelector("#shareLinks");
 
 const monthNumbers = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 
@@ -109,24 +108,8 @@ function render() {
   groupsView.classList.toggle("hidden", stage !== "groups");
   knockoutView.classList.toggle("hidden", stage !== "knockout");
   renderLeaderboard();
-  renderShareLinks();
   renderGroups();
   renderKnockout();
-}
-
-async function renderShareLinks() {
-  if (!shareLinks || shareLinks.dataset.loaded) return;
-  try {
-    const response = await fetch("/api/info");
-    const info = await response.json();
-    shareLinks.dataset.loaded = "true";
-    const links = [info.localUrl, ...(info.networkUrls || [])].filter(Boolean);
-    shareLinks.innerHTML = links.map((url, index) => `
-      <a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${index === 0 ? "This device" : "Same Wi-Fi"}: ${escapeHtml(url)}</a>
-    `).join("");
-  } catch {
-    shareLinks.textContent = "Share links unavailable";
-  }
 }
 
 function hasMatchStarted(kickoff) {
