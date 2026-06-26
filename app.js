@@ -268,6 +268,16 @@ function resultEntryRow(match, kind, actual, disabled = false, label = "", displ
   `;
 }
 
+function groupDisplayNumber(match) {
+  const sorted = [...appState.matches].sort(compareMatchTime);
+  return sorted.findIndex(item => item.id === match.id) + 1;
+}
+
+function knockoutDisplayNumber(match) {
+  const sorted = getKnockoutRounds(getStandings()).flatMap(round => round.matches).sort(compareMatchTime);
+  return sorted.findIndex(item => item.id === match.id) + 1;
+}
+
 function renderMatch(match) {
   const prediction = appState.predictions[selectedPlayer]?.[match.id] || { home: "", away: "" };
   const actual = appState.actuals[String(match.id)] || { home: match.actualHome || "", away: match.actualAway || "" };
@@ -280,7 +290,7 @@ function renderMatch(match) {
   return `
     <div class="match${resultClass}">
       <div class="matchMeta">
-        <span>Match ${match.id}</span>
+        <span>Match ${groupDisplayNumber(match)}</span>
         <span>${escapeHtml(match.kickoff)}</span>
       </div>
       <div class="scoreline">
@@ -416,7 +426,7 @@ function renderKnockoutMatch(match) {
   const pointText = done ? `${lockIcon} ${points} pt${points === 1 ? "" : "s"}` : ready && !started ? "TBD" : started ? `${lockIcon} locked` : "TBD";
   return `
     <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}${resultClass}">
-      <strong>Match ${match.id}</strong>
+      <strong>Match ${knockoutDisplayNumber(match)}</strong>
       <div class="matchMeta knockoutMeta"><span>${escapeHtml(match.kickoff || "Time TBD")}</span></div>
       <span class="slot ${homeKnown ? "known" : "unknown"}">${teamName(match.home)}</span>
       <div class="scoreInputs knockoutPredict">
