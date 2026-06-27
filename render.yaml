@@ -5,10 +5,10 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    disk:
-      name: family-world-cup-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
+      - key: GITHUB_STATE_TOKEN
+        sync: false
+      - key: GITHUB_STATE_BRANCH
+        value: game-state
       - key: STATE_PATH
-        value: /data/state.json
+        value: /tmp/state.json

@@ -8,6 +8,16 @@ const seed = JSON.parse(fs.readFileSync(path.join(root, "seed-data.json"), "utf8
 const bundledStatePath = path.join(root, "state.json");
 const statePath = process.env.STATE_PATH || bundledStatePath;
 const clients = new Set();
+const githubStorage = {
+  token: process.env.GITHUB_STATE_TOKEN || process.env.GITHUB_TOKEN || "",
+  repo: process.env.GITHUB_STATE_REPO || process.env.GITHUB_REPOSITORY || "lilloui92/my-website",
+  branch: process.env.GITHUB_STATE_BRANCH || "game-state",
+  filePath: process.env.GITHUB_STATE_PATH || "state.json",
+};
+let stateCache = null;
+let githubStateSha = null;
+let githubBranchReady = false;
+let writeQueue = Promise.resolve();
 
 const monthNumbers = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 
@@ -51,13 +61,119 @@ function defaultState() {
   return { predictions: seed.predictions, actuals: {}, knockout: [], knockoutResults: {} };
 }
 
-function readState() {
-  if (!fs.existsSync(statePath)) {
-    const state = defaultState();
-    writeStateFile(state);
-    return state;
+function cloneState(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function normalizeState(state) {
+  return {
+    predictions: state?.predictions || seed.predictions,
+    actuals: state?.actuals || {},
+    knockout: Array.isArray(state?.knockout) ? state.knockout : [],
+    knockoutResults: state?.knockoutResults || {},
+  };
+}
+
+function githubStateEnabled() {
+  return Boolean(githubStorage.token && githubStorage.repo);
+}
+
+function githubHeaders(extra = {}) {
+  return {
+    authorization: `Bearer ${githubStorage.token}`,
+    accept: "application/vnd.github+json",
+    "user-agent": "family-world-cup-predictions",
+    ...extra,
+  };
+}
+
+async function ensureGithubStateBranch() {
+  if (!githubStateEnabled() || githubBranchReady) return;
+  const branchRefUrl = `https://api.github.com/repos/${githubStorage.repo}/git/ref/heads/${encodeURIComponent(githubStorage.branch)}`;
+  let response = await fetch(branchRefUrl, { headers: githubHeaders() });
+  if (response.ok) {
+    githubBranchReady = true;
+    return;
   }
-  return JSON.parse(fs.readFileSync(statePath, "utf8"));
+  if (response.status !== 404) throw new Error(`GitHub branch check failed: ${response.status}`);
+
+  const mainRefUrl = `https://api.github.com/repos/${githubStorage.repo}/git/ref/heads/main`;
+  response = await fetch(mainRefUrl, { headers: githubHeaders() });
+  if (!response.ok) throw new Error(`GitHub main branch read failed: ${response.status}`);
+  const mainRef = await response.json();
+
+  response = await fetch(`https://api.github.com/repos/${githubStorage.repo}/git/refs`, {
+    method: "POST",
+    headers: githubHeaders({ "content-type": "application/json" }),
+    body: JSON.stringify({ ref: `refs/heads/${githubStorage.branch}`, sha: mainRef.object.sha }),
+  });
+  if (!response.ok && response.status !== 422) throw new Error(`GitHub branch create failed: ${response.status}`);
+  githubBranchReady = true;
+}
+
+async function fetchGithubState() {
+  if (!githubStateEnabled()) return null;
+  await ensureGithubStateBranch();
+  const url = `https://api.github.com/repos/${githubStorage.repo}/contents/${encodeURIComponent(githubStorage.filePath)}?ref=${encodeURIComponent(githubStorage.branch)}`;
+  const response = await fetch(url, { headers: githubHeaders() });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`GitHub state read failed: ${response.status}`);
+  const data = await response.json();
+  githubStateSha = data.sha;
+  return JSON.parse(Buffer.from(data.content, "base64").toString("utf8"));
+}
+
+async function saveGithubState(state) {
+  if (!githubStateEnabled()) return;
+  await ensureGithubStateBranch();
+  const url = `https://api.github.com/repos/${githubStorage.repo}/contents/${encodeURIComponent(githubStorage.filePath)}`;
+  const body = {
+    message: "Update family game state",
+    content: Buffer.from(JSON.stringify(state, null, 2), "utf8").toString("base64"),
+    branch: githubStorage.branch,
+  };
+  if (githubStateSha) body.sha = githubStateSha;
+
+  let response = await fetch(url, {
+    method: "PUT",
+    headers: githubHeaders({ "content-type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+
+  if (response.status === 409) {
+    await fetchGithubState();
+    if (githubStateSha) body.sha = githubStateSha;
+    response = await fetch(url, {
+      method: "PUT",
+      headers: githubHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (!response.ok) throw new Error(`GitHub state save failed: ${response.status}`);
+  const data = await response.json();
+  githubStateSha = data.content?.sha || githubStateSha;
+}
+
+async function readState() {
+  if (stateCache) return cloneState(stateCache);
+  let state = null;
+  try {
+    state = await fetchGithubState();
+  } catch (error) {
+    console.error(error.message);
+  }
+  if (!state) {
+    if (!fs.existsSync(statePath)) {
+      state = defaultState();
+      writeStateFile(state);
+    } else {
+      state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    }
+  }
+  stateCache = normalizeState(state);
+  writeStateFile(stateCache);
+  return cloneState(stateCache);
 }
 
 function writeStateFile(state) {
@@ -65,13 +181,17 @@ function writeStateFile(state) {
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2), "utf8");
 }
 
-function writeState(state) {
-  writeStateFile(state);
-  broadcast();
+async function writeState(state) {
+  const nextState = normalizeState(state);
+  stateCache = cloneState(nextState);
+  writeStateFile(nextState);
+  writeQueue = writeQueue.catch(error => console.error(error.message)).then(() => saveGithubState(nextState));
+  await writeQueue;
+  await broadcast();
 }
 
-function publicState() {
-  return { ...seed, ...readState() };
+async function publicState() {
+  return { ...seed, ...(await readState()) };
 }
 
 function appInfo(port) {
@@ -130,8 +250,8 @@ function parseBody(req) {
   });
 }
 
-function broadcast() {
-  const payload = `data: ${JSON.stringify(publicState())}\n\n`;
+async function broadcast() {
+  const payload = `data: ${JSON.stringify(await publicState())}\n\n`;
   for (const res of clients) res.write(payload);
 }
 
@@ -152,7 +272,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/") return staticFile(res, "index.html", "text/html; charset=utf-8");
     if (req.method === "GET" && req.url === "/styles.css") return staticFile(res, "styles.css", "text/css; charset=utf-8");
     if (req.method === "GET" && req.url === "/app.js") return staticFile(res, "app.js", "text/javascript; charset=utf-8");
-    if (req.method === "GET" && req.url === "/api/state") return sendJson(res, 200, publicState());
+    if (req.method === "GET" && req.url === "/api/state") return sendJson(res, 200, await publicState());
     if (req.method === "GET" && req.url === "/api/info") return sendJson(res, 200, appInfo(port));
     if (req.method === "GET" && req.url === "/events") {
       res.writeHead(200, {
@@ -161,7 +281,7 @@ const server = http.createServer(async (req, res) => {
         connection: "keep-alive",
       });
       clients.add(res);
-      res.write(`data: ${JSON.stringify(publicState())}\n\n`);
+      res.write(`data: ${JSON.stringify(await publicState())}\n\n`);
       req.on("close", () => clients.delete(res));
       return;
     }
@@ -169,7 +289,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/prediction") {
       const { player, matchId, home, away } = await parseBody(req);
       if (!seed.players.includes(player)) return sendJson(res, 400, { error: "Unknown player" });
-      const state = readState();
+      const state = await readState();
       const groupActual = state.actuals[String(matchId)] || {};
       const knockoutActual = state.knockoutResults?.[String(matchId)] || {};
       const resultEntered = (groupActual.home !== undefined && groupActual.home !== "" && groupActual.away !== undefined && groupActual.away !== "") ||
@@ -178,35 +298,35 @@ const server = http.createServer(async (req, res) => {
       if (hasMatchStarted(matchId)) return sendJson(res, 409, { error: "Match already started" });
       state.predictions[player] ||= {};
       state.predictions[player][String(matchId)] = { home: cleanScore(home), away: cleanScore(away) };
-      writeState(state);
-      return sendJson(res, 200, publicState());
+      await writeState(state);
+      return sendJson(res, 200, await publicState());
     }
 
     if (req.method === "POST" && req.url === "/api/result") {
       const { matchId, home, away } = await parseBody(req);
-      const state = readState();
+      const state = await readState();
       state.actuals[String(matchId)] = { home: cleanScore(home), away: cleanScore(away) };
-      writeState(state);
-      return sendJson(res, 200, publicState());
+      await writeState(state);
+      return sendJson(res, 200, await publicState());
     }
 
     if (req.method === "POST" && req.url === "/api/knockout") {
       const { knockout } = await parseBody(req);
-      const state = readState();
+      const state = await readState();
       state.knockout = Array.isArray(knockout) ? knockout : [];
       state.knockoutResults ||= {};
-      writeState(state);
-      return sendJson(res, 200, publicState());
+      await writeState(state);
+      return sendJson(res, 200, await publicState());
     }
 
     if (req.method === "POST" && req.url === "/api/knockout-result") {
       const { matchId, home, away } = await parseBody(req);
-      const state = readState();
+      const state = await readState();
       state.knockout ||= [];
       state.knockoutResults ||= {};
       state.knockoutResults[String(matchId)] = { home: cleanScore(home), away: cleanScore(away) };
-      writeState(state);
-      return sendJson(res, 200, publicState());
+      await writeState(state);
+      return sendJson(res, 200, await publicState());
     }
 
     res.writeHead(404);
