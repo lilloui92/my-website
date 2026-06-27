@@ -430,12 +430,11 @@ function bindScoreInputs() {
       scheduleScoreSave(input.dataset.kind, input.dataset.match);
     });
     input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match, true));
-    input.addEventListener("blur", () => {
-      saveScore(input.dataset.kind, input.dataset.match, true);
+    input.addEventListener("blur", async () => {
+      await saveScore(input.dataset.kind, input.dataset.match, true);
       if (pendingRemoteState) {
-        const state = pendingRemoteState;
         pendingRemoteState = null;
-        setTimeout(() => applyState(state), 0);
+        refreshState({ force: true });
       }
     });
   });
@@ -453,6 +452,9 @@ function scheduleScoreSave(kind, matchId) {
 }
 
 async function saveScore(kind, matchId, renderAfterSave = false) {
+  const key = kind + ":" + matchId;
+  clearTimeout(saveTimers.get(key));
+  saveTimers.delete(key);
   const fields = [...document.querySelectorAll(`input.score[data-kind="${kind}"][data-match="${matchId}"]`)];
   const homeField = fields.find(field => field.dataset.side === "home");
   const awayField = fields.find(field => field.dataset.side === "away");
