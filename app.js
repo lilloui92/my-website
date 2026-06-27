@@ -36,6 +36,17 @@ const teamFlags = {
   POR: "PT", COD: "CD", UZB: "UZ", COL: "CO", ENG: "GB", CRO: "HR", GHA: "GH", PAN: "PA",
 };
 
+
+const thirdPlaceSlots = [
+  { id: 74, groups: ["A", "B", "C", "D", "F"] },
+  { id: 77, groups: ["C", "D", "F", "G", "H"] },
+  { id: 79, groups: ["C", "E", "F", "H", "I"] },
+  { id: 80, groups: ["E", "H", "I", "J", "K"] },
+  { id: 81, groups: ["B", "E", "F", "I", "J"] },
+  { id: 82, groups: ["A", "E", "H", "I", "J"] },
+  { id: 85, groups: ["E", "F", "G", "I", "J"] },
+  { id: 87, groups: ["D", "E", "I", "J", "L"] },
+];
 const knockoutKickoffs = {
   73: "Jun 28 - 11:00 PM",
   74: "Jun 30 - 12:30 AM",
@@ -568,7 +579,7 @@ function getStandings() {
     groups[match.group] ||= {};
     groups[match.group][match.home] ||= emptyTeam(match.home, match.group);
     groups[match.group][match.away] ||= emptyTeam(match.away, match.group);
-    const actual = appState.actuals[String(match.id)] || {};
+    const actual = actualForGroupMatch(match);
     if (actual.home === "" || actual.away === "") continue;
     const homeGoals = Number(actual.home);
     const awayGoals = Number(actual.away);
@@ -584,18 +595,69 @@ function getStandings() {
   for (const group of Object.keys(sortedGroups)) {
     const groupMatches = appState.matches.filter(match => match.group === group);
     completeGroups[group] = groupMatches.every(match => {
-      const actual = appState.actuals[String(match.id)] || {};
+      const actual = actualForGroupMatch(match);
       return actual.home !== "" && actual.away !== "";
     });
   }
-  const confirmedThirds = Object.entries(sortedGroups)
+  const thirdRows = Object.entries(sortedGroups)
     .filter(([group]) => completeGroups[group])
     .map(([group, rows]) => ({ ...rows[2], group, position: `${group}3` }))
-    .filter(row => row.points >= 4)
     .sort(compareTeams);
-  return { groups: sortedGroups, completeGroups, confirmedThirds };
+  const allGroupsComplete = Object.keys(sortedGroups).length === 12 && Object.values(completeGroups).every(Boolean);
+  const hasCutoffTie = thirdRows.length > 8 && sameKnownRankingStats(thirdRows[7], thirdRows[8]);
+  const qualifiedThirds = allGroupsComplete && !hasCutoffTie ? thirdRows.slice(0, 8) : [];
+  return { groups: sortedGroups, completeGroups, thirdRows, qualifiedThirds, allGroupsComplete };
 }
 
+function sameKnownRankingStats(a, b) {
+  if (!a || !b) return false;
+  return a.points === b.points && a.goalDiff === b.goalDiff && a.goalsFor === b.goalsFor;
+}
+function actualForGroupMatch(match) {
+  const actual = appState.actuals[String(match.id)] || {};
+  return {
+    home: actual.home ?? match.actualHome ?? "",
+    away: actual.away ?? match.actualAway ?? "",
+  };
+}
+
+function getThirdPlaceAssignments(standings) {
+  if (!standings.allGroupsComplete || standings.qualifiedThirds.length !== 8) return {};
+  const teamsByGroup = Object.fromEntries(standings.qualifiedThirds.map(row => [row.group, row]));
+  const qualifiedGroups = new Set(Object.keys(teamsByGroup));
+  const slots = thirdPlaceSlots.map(slot => ({
+    ...slot,
+    groups: slot.groups.filter(group => qualifiedGroups.has(group)),
+  }));
+  if (slots.some(slot => slot.groups.length === 0)) return {};
+  const assignments = enumerateThirdPlaceAssignments(slots);
+  if (!assignments.length) return {};
+  const certain = {};
+  for (const slot of slots) {
+    const group = assignments[0][slot.id];
+    if (assignments.every(assignment => assignment[slot.id] === group)) {
+      certain[slot.id] = teamsByGroup[group];
+    }
+  }
+  return certain;
+}
+
+function enumerateThirdPlaceAssignments(slots, index = 0, used = new Set(), current = {}, results = []) {
+  if (index === slots.length) {
+    results.push({ ...current });
+    return results;
+  }
+  const slot = slots[index];
+  for (const group of slot.groups) {
+    if (used.has(group)) continue;
+    used.add(group);
+    current[slot.id] = group;
+    enumerateThirdPlaceAssignments(slots, index + 1, used, current, results);
+    delete current[slot.id];
+    used.delete(group);
+  }
+  return results;
+}
 function emptyTeam(team, group) {
   return { team, group, played: 0, points: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0 };
 }
@@ -618,8 +680,8 @@ function compareTeams(a, b) {
 function getKnockoutRounds(standings) {
   const round32 = getRoundOf32(standings);
   const round16 = pairRound(round32, [
-    { id: 89, pair: [74, 77] },
-    { id: 90, pair: [73, 75] },
+    { id: 89, pair: [73, 75] },
+    { id: 90, pair: [74, 77] },
     { id: 91, pair: [76, 78] },
     { id: 92, pair: [79, 80] },
     { id: 93, pair: [83, 84] },
@@ -688,23 +750,24 @@ function getRoundOf32(standings) {
     if (!standings.completeGroups[group]) return `TBD ${group}${index + 1}`;
     return standings.groups[group]?.[index]?.team || `TBD ${group}${index + 1}`;
   };
-  const third = groups => `TBD 3rd ${groups.join("/")}`;
+  const thirdAssignments = getThirdPlaceAssignments(standings);
+  const third = (matchId, groups) => thirdAssignments[matchId]?.team || `TBD 3rd ${groups.join("/")}`;
   return withKickoffs([
     { id: 73, home: groupTeam("A", 1), away: groupTeam("B", 1) },
-    { id: 74, home: groupTeam("E", 0), away: third(["A", "B", "C", "D", "F"]) },
+    { id: 74, home: groupTeam("E", 0), away: third(74, ["A", "B", "C", "D", "F"]) },
     { id: 75, home: groupTeam("F", 0), away: groupTeam("C", 1) },
     { id: 76, home: groupTeam("C", 0), away: groupTeam("F", 1) },
-    { id: 77, home: groupTeam("I", 0), away: third(["C", "D", "F", "G", "H"]) },
+    { id: 77, home: groupTeam("I", 0), away: third(77, ["C", "D", "F", "G", "H"]) },
     { id: 78, home: groupTeam("E", 1), away: groupTeam("I", 1) },
-    { id: 79, home: groupTeam("A", 0), away: third(["C", "E", "F", "H", "I"]) },
-    { id: 80, home: groupTeam("L", 0), away: third(["E", "H", "I", "J", "K"]) },
-    { id: 81, home: groupTeam("D", 0), away: third(["B", "E", "F", "I", "J"]) },
-    { id: 82, home: groupTeam("G", 0), away: third(["A", "E", "H", "I", "J"]) },
+    { id: 79, home: groupTeam("A", 0), away: third(79, ["C", "E", "F", "H", "I"]) },
+    { id: 80, home: groupTeam("L", 0), away: third(80, ["E", "H", "I", "J", "K"]) },
+    { id: 81, home: groupTeam("D", 0), away: third(81, ["B", "E", "F", "I", "J"]) },
+    { id: 82, home: groupTeam("G", 0), away: third(82, ["A", "E", "H", "I", "J"]) },
     { id: 83, home: groupTeam("K", 1), away: groupTeam("L", 1) },
     { id: 84, home: groupTeam("H", 0), away: groupTeam("J", 1) },
-    { id: 85, home: groupTeam("B", 0), away: third(["E", "F", "G", "I", "J"]) },
+    { id: 85, home: groupTeam("B", 0), away: third(85, ["E", "F", "G", "I", "J"]) },
     { id: 86, home: groupTeam("J", 0), away: groupTeam("H", 1) },
-    { id: 87, home: groupTeam("K", 0), away: third(["D", "E", "I", "J", "L"]) },
+    { id: 87, home: groupTeam("K", 0), away: third(87, ["D", "E", "I", "J", "L"]) },
     { id: 88, home: groupTeam("D", 1), away: groupTeam("G", 1) },
   ]);
 }
