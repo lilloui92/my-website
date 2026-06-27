@@ -307,7 +307,7 @@ function renderGroups() {
         <h3>Group ${group}</h3>
         <div class="teams">${(appState.teams[group] || []).map(t => `${t.flag} ${escapeHtml(t.name)}`).join(" - ")}</div>
       </div>
-      ${matches.map(renderMatch).join("")}
+      ${[...matches].sort(compareMatchTime).map(renderMatch).join("")}
     </article>
   `).join("");
 }
@@ -331,7 +331,7 @@ function renderResultEntry() {
     .map(match => {
       const result = appState.knockoutResults[String(match.id)] || { home: "", away: "" };
       const disabled = match.home.startsWith("TBD") || match.away.startsWith("TBD");
-      return resultEntryRow(match, "knockout-result", result, disabled, match.round, match.id - 72);
+      return resultEntryRow(match, "knockout-result", result, disabled, match.round, knockoutDisplayNumber(match));
     })
     .join("");
 
@@ -376,8 +376,16 @@ function groupDisplayNumber(match) {
 }
 
 function knockoutDisplayNumber(match) {
-  const sorted = getKnockoutRounds(getStandings()).flatMap(round => round.matches).sort(compareMatchTime);
-  return sorted.findIndex(item => item.id === match.id) + 1;
+  return knockoutDisplayNumberById(match.id);
+}
+
+function knockoutDisplayNumberById(id) {
+  const ids = Object.keys(knockoutKickoffs).map(Number).sort((a, b) =>
+    (kickoffToUtcMs(knockoutKickoffs[a]) ?? Number.MAX_SAFE_INTEGER) -
+    (kickoffToUtcMs(knockoutKickoffs[b]) ?? Number.MAX_SAFE_INTEGER) || a - b
+  );
+  const index = ids.findIndex(item => String(item) === String(id));
+  return index === -1 ? id : index + 1;
 }
 
 function renderMatch(match) {
@@ -515,7 +523,7 @@ function renderKnockout() {
     <section class="bracketRound">
       <h4>${round.name}</h4>
       <div class="bracket">
-        ${round.matches.map(renderKnockoutMatch).join("")}
+        ${[...round.matches].sort(compareMatchTime).map(renderKnockoutMatch).join("")}
       </div>
     </section>
   `).join("");
@@ -725,16 +733,18 @@ function withKickoffs(matches) {
 
 function winnerOfMatch(matches, id) {
   const match = matches.find(item => item.id === id);
-  if (!match) return `TBD Winner M${id}`;
-  return winnerOf(match) || `TBD Winner M${id}`;
+  const label = knockoutDisplayNumberById(id);
+  if (!match) return `TBD Winner Match ${label}`;
+  return winnerOf(match) || `TBD Winner Match ${label}`;
 }
 
 function loserOfMatch(matches, id) {
   const match = matches.find(item => item.id === id);
-  if (!match) return `TBD Loser M${id}`;
+  const label = knockoutDisplayNumberById(id);
+  if (!match) return `TBD Loser Match ${label}`;
   const result = appState.knockoutResults[String(id)] || {};
-  if (match.home.startsWith("TBD") || match.away.startsWith("TBD")) return `TBD Loser M${id}`;
-  if (result.home === "" || result.away === "" || result.home === result.away) return `TBD Loser M${id}`;
+  if (match.home.startsWith("TBD") || match.away.startsWith("TBD")) return `TBD Loser Match ${label}`;
+  if (result.home === "" || result.away === "" || result.home === result.away) return `TBD Loser Match ${label}`;
   return Number(result.home) < Number(result.away) ? match.home : match.away;
 }
 
