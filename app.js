@@ -614,7 +614,7 @@ async function refreshState(options = {}) {
 }
 
 function refreshFromActivity(event) {
-  if (event?.target?.closest?.("select.winnerSelect")) return;
+  if (event?.target?.closest?.("input.score, select.winnerSelect")) return;
   if (lockActiveStartedPrediction()) return;
   refreshState();
 }
@@ -986,6 +986,7 @@ function bindScoreInputs() {
   document.querySelectorAll("input.score").forEach(input => {
     input.addEventListener("input", () => {
       input.value = input.value.replace(/\D/g, "").slice(0, 2);
+      rememberLocalScore(input);
       scheduleScoreSave(input.dataset.kind, input.dataset.match);
     });
     input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match, true));
@@ -998,8 +999,41 @@ function bindScoreInputs() {
     });
   });
   document.querySelectorAll("select.winnerSelect").forEach(select => {
-    select.addEventListener("change", () => saveScore(select.dataset.kind, select.dataset.match, true));
+    select.addEventListener("change", () => {
+      rememberPenaltyWinner(select);
+      saveScore(select.dataset.kind, select.dataset.match, true);
+    });
   });
+}
+
+function rememberLocalScore(input) {
+  const matchId = String(input.dataset.match);
+  if (input.dataset.kind === "prediction") {
+    appState.predictions[selectedPlayer] ||= {};
+    appState.predictions[selectedPlayer][matchId] ||= { home: "", away: "" };
+    appState.predictions[selectedPlayer][matchId][input.dataset.side] = input.value;
+  }
+  if (input.dataset.kind === "result") {
+    appState.actuals[matchId] ||= { home: "", away: "" };
+    appState.actuals[matchId][input.dataset.side] = input.value;
+  }
+  if (input.dataset.kind === "knockout-result") {
+    appState.knockoutResults[matchId] ||= { home: "", away: "" };
+    appState.knockoutResults[matchId][input.dataset.side] = input.value;
+  }
+}
+
+function rememberPenaltyWinner(select) {
+  const matchId = String(select.dataset.match);
+  if (select.dataset.kind === "prediction") {
+    appState.predictions[selectedPlayer] ||= {};
+    appState.predictions[selectedPlayer][matchId] ||= { home: "", away: "" };
+    appState.predictions[selectedPlayer][matchId].winner = select.value;
+  }
+  if (select.dataset.kind === "knockout-result") {
+    appState.knockoutResults[matchId] ||= { home: "", away: "" };
+    appState.knockoutResults[matchId].winner = select.value;
+  }
 }
 
 function matchById(matchId) {
@@ -1100,16 +1134,18 @@ function renderKnockoutMatch(match) {
     <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}${resultClass}">
       <strong>Match ${knockoutDisplayNumber(match)}</strong>
       <div class="matchMeta knockoutMeta"><span>${escapeHtml(match.kickoff || "Time TBD")}</span></div>
-      <span class="slot ${homeKnown ? "known" : "unknown"}">${teamName(match.home)}</span>
-      <div class="scoreInputs knockoutPredict">
-        <input class="score" data-kind="prediction" data-match="${match.id}" data-side="home" value="${escapeHtml(prediction.home)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
-        <span class="versus">:</span>
-        <input class="score" data-kind="prediction" data-match="${match.id}" data-side="away" value="${escapeHtml(prediction.away)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
+      <div class="knockoutScoreline">
+        <span class="slot ${homeKnown ? "known" : "unknown"}">${teamName(match.home)}</span>
+        <div class="scoreInputs knockoutPredict">
+          <input class="score" data-kind="prediction" data-match="${match.id}" data-side="home" value="${escapeHtml(prediction.home)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
+          <span class="versus">:</span>
+          <input class="score" data-kind="prediction" data-match="${match.id}" data-side="away" value="${escapeHtml(prediction.away)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
+        </div>
+        <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       </div>
       <select class="winnerSelect penaltyPick" data-kind="prediction" data-match="${match.id}" ${predictionDisabled ? "disabled" : ""}>
         ${winnerSelectOptions(match, prediction.winner === "home" || prediction.winner === "away" ? prediction.winner : "")}
       </select>
-      <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       <div class="actual knockoutActual">
         <span>Actual: ${done ? knockoutResultText(result) : "TBD"}</span>
         <span class="points">${pointText}</span>

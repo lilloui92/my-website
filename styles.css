@@ -795,3 +795,24 @@ textarea {
   background: #fffdf3;
   border-color: rgba(255, 183, 3, 0.72);
 }
+.knockoutScoreline {
+  display: grid;
+  grid-template-columns: minmax(74px, 1fr) auto minmax(74px, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.knockoutScoreline .slot:last-child {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .knockoutScoreline {
+    grid-template-columns: minmax(54px, 1fr) auto minmax(54px, 1fr);
+    gap: 5px;
+  }
+
+  .knockoutScoreline .slot {
+    overflow-wrap: anywhere;
+  }
+}
