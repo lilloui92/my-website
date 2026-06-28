@@ -106,6 +106,10 @@ if (!appText.includes("function penaltyBonus") || !appText.includes("data-kind=\
   fail("Penalty winner prediction saving/scoring support is missing");
 }
 
+if (appText.includes("const predictionWinnerSelect = isTiedScore(prediction) ? `\n      ${predictionWinnerSelect}")) {
+  fail("Prediction winner dropdown template references itself");
+}
+
 expectScore("exact draw plus correct pens", { home: "1", away: "1", winner: "home" }, { home: "1", away: "1", winner: "home" }, 3);
 expectScore("different draw plus correct pens", { home: "0", away: "0", winner: "home" }, { home: "1", away: "1", winner: "home" }, 2);
 expectScore("different draw plus wrong pens", { home: "0", away: "0", winner: "away" }, { home: "1", away: "1", winner: "home" }, 1);

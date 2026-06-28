@@ -866,12 +866,17 @@ function winnerSelectOptions(match, selected) {
 }
 
 function knockoutWinnerSelect(match, actual, disabled) {
+  if (!isTiedScore(actual)) return "";
   const selected = actual.winner === "home" || actual.winner === "away" ? actual.winner : "";
   return `
       <select class="winnerSelect" data-kind="knockout-result" data-match="${match.id}" ${disabled ? "disabled" : ""}>
         ${winnerSelectOptions(match, selected)}
       </select>
   `;
+}
+
+function isTiedScore(score) {
+  return score?.home !== "" && score?.away !== "" && Number(score.home) === Number(score.away);
 }
 
 function knockoutResultComplete(result) {
@@ -987,6 +992,7 @@ function bindScoreInputs() {
     input.addEventListener("input", () => {
       input.value = input.value.replace(/\D/g, "").slice(0, 2);
       rememberLocalScore(input);
+      rerenderIfTieVisibilityChanged(input);
       scheduleScoreSave(input.dataset.kind, input.dataset.match);
     });
     input.addEventListener("change", () => saveScore(input.dataset.kind, input.dataset.match, true));
@@ -1021,6 +1027,14 @@ function rememberLocalScore(input) {
     appState.knockoutResults[matchId] ||= { home: "", away: "" };
     appState.knockoutResults[matchId][input.dataset.side] = input.value;
   }
+}
+
+function rerenderIfTieVisibilityChanged(input) {
+  if (input.dataset.kind !== "prediction" && input.dataset.kind !== "knockout-result") return;
+  const matchId = String(input.dataset.match);
+  const score = input.dataset.kind === "prediction" ? appState.predictions[selectedPlayer]?.[matchId] : appState.knockoutResults[matchId];
+  const select = document.querySelector(`select.winnerSelect[data-kind="${input.dataset.kind}"][data-match="${matchId}"]`);
+  if (isTiedScore(score) !== Boolean(select)) render();
 }
 
 function rememberPenaltyWinner(select) {
@@ -1130,6 +1144,11 @@ function renderKnockoutMatch(match) {
   const points = pointsFor(selectedPlayer, match, result);
   const resultClass = done ? ` result-${points}` : "";
   const pointText = done ? `${lockIcon} ${points} pt${points === 1 ? "" : "s"}` : ready && !started ? "TBD" : started ? `${lockIcon} locked` : "TBD";
+  const predictionWinnerSelect = isTiedScore(prediction) ? `
+      <select class="winnerSelect penaltyPick" data-kind="prediction" data-match="${match.id}" ${predictionDisabled ? "disabled" : ""}>
+        ${winnerSelectOptions(match, prediction.winner === "home" || prediction.winner === "away" ? prediction.winner : "")}
+      </select>
+  ` : "";
   return `
     <div class="bracketMatch ${done ? "locked" : ready ? "ready" : "waiting"}${resultClass}">
       <strong>Match ${knockoutDisplayNumber(match)}</strong>
@@ -1143,9 +1162,7 @@ function renderKnockoutMatch(match) {
         </div>
         <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       </div>
-      <select class="winnerSelect penaltyPick" data-kind="prediction" data-match="${match.id}" ${predictionDisabled ? "disabled" : ""}>
-        ${winnerSelectOptions(match, prediction.winner === "home" || prediction.winner === "away" ? prediction.winner : "")}
-      </select>
+      ${predictionWinnerSelect}
       <div class="actual knockoutActual">
         <span>Actual: ${done ? knockoutResultText(result) : "TBD"}</span>
         <span class="points">${pointText}</span>
