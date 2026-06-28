@@ -613,7 +613,8 @@ async function refreshState(options = {}) {
   return refreshInFlight;
 }
 
-function refreshFromActivity() {
+function refreshFromActivity(event) {
+  if (event?.target?.closest?.("select.winnerSelect")) return;
   if (lockActiveStartedPrediction()) return;
   refreshState();
 }
@@ -710,7 +711,7 @@ function applyState(state) {
 }
 
 function isEditingScore() {
-  return document.activeElement?.matches?.("input.score");
+  return document.activeElement?.matches?.("input.score, select.winnerSelect");
 }
 
 function render() {
