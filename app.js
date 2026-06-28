@@ -1200,12 +1200,12 @@ function compareTeams(a, b) {
 function getKnockoutRounds(standings) {
   const round32 = getRoundOf32(standings);
   const round16 = pairRound(round32, [
-    { id: 89, pair: [73, 75] },
-    { id: 90, pair: [74, 77] },
-    { id: 91, pair: [76, 78] },
-    { id: 92, pair: [79, 80] },
-    { id: 93, pair: [83, 84] },
-    { id: 94, pair: [81, 82] },
+    { id: 89, pair: [74, 77] },
+    { id: 90, pair: [73, 75] },
+    { id: 91, pair: [83, 84] },
+    { id: 92, pair: [81, 82] },
+    { id: 93, pair: [76, 78] },
+    { id: 94, pair: [79, 80] },
     { id: 95, pair: [86, 88] },
     { id: 96, pair: [85, 87] },
   ]);
