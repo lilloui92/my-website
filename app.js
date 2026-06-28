@@ -545,6 +545,14 @@ const thirdPlaceSlots = [
   { id: 85, groups: ["E", "F", "G", "I", "J"] },
   { id: 87, groups: ["D", "E", "I", "J", "L"] },
 ];
+const knockoutDisplayOrder = [
+  73, 74, 75, 76, 77, 78, 79, 80,
+  81, 82, 83, 84, 85, 86, 87, 88,
+  89, 90, 91, 92, 93, 94, 95, 96,
+  97, 98, 99, 100,
+  101, 102,
+  103, 104,
+];
 const knockoutKickoffs = {
   73: "Jun 28 - 11:00 PM",
   74: "Jun 30 - 12:30 AM",
@@ -761,6 +769,9 @@ function scheduleNextKickoffLock() {
   }, delay);
 }
 
+function compareKnockoutDisplayOrder(a, b) {
+  return knockoutDisplayNumber(a) - knockoutDisplayNumber(b);
+}
 function compareMatchTime(a, b) {
   return (kickoffToUtcMs(a.kickoff) ?? Number.MAX_SAFE_INTEGER) - (kickoffToUtcMs(b.kickoff) ?? Number.MAX_SAFE_INTEGER) || a.id - b.id;
 }
@@ -825,7 +836,7 @@ function renderResultEntry() {
 
   const knockoutRows = getKnockoutRounds(getStandings())
     .flatMap(round => round.matches.map(match => ({ ...match, round: round.name })))
-    .sort(compareMatchTime)
+    .sort(compareKnockoutDisplayOrder)
     .map(match => {
       const result = appState.knockoutResults[String(match.id)] || { home: "", away: "" };
       const disabled = match.home.startsWith("TBD") || match.away.startsWith("TBD");
@@ -878,11 +889,7 @@ function knockoutDisplayNumber(match) {
 }
 
 function knockoutDisplayNumberById(id) {
-  const ids = Object.keys(knockoutKickoffs).map(Number).sort((a, b) =>
-    (kickoffToUtcMs(knockoutKickoffs[a]) ?? Number.MAX_SAFE_INTEGER) -
-    (kickoffToUtcMs(knockoutKickoffs[b]) ?? Number.MAX_SAFE_INTEGER) || a - b
-  );
-  const index = ids.findIndex(item => String(item) === String(id));
+  const index = knockoutDisplayOrder.findIndex(item => String(item) === String(id));
   return index === -1 ? id : index + 1;
 }
 
@@ -1021,7 +1028,7 @@ function renderKnockout() {
     <section class="bracketRound">
       <h4>${round.name}</h4>
       <div class="bracket">
-        ${[...round.matches].sort(compareMatchTime).map(renderKnockoutMatch).join("")}
+        ${[...round.matches].sort(compareKnockoutDisplayOrder).map(renderKnockoutMatch).join("")}
       </div>
     </section>
   `).join("");
