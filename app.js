@@ -856,9 +856,33 @@ function renderResultEntry() {
   `;
 }
 
+function knockoutWinnerSelect(match, actual, disabled) {
+  const selected = actual.winner === "home" || actual.winner === "away" ? actual.winner : "";
+  return `
+      <select class="winnerSelect" data-kind="knockout-result" data-match="${match.id}" ${disabled ? "disabled" : ""}>
+        <option value="">Winner if tied</option>
+        <option value="home" ${selected === "home" ? "selected" : ""}>${escapeHtml(match.home)} advances</option>
+        <option value="away" ${selected === "away" ? "selected" : ""}>${escapeHtml(match.away)} advances</option>
+      </select>
+  `;
+}
+
+function knockoutResultComplete(result) {
+  if (!result || result.home === "" || result.away === "") return false;
+  if (result.home !== result.away) return true;
+  return result.winner === "home" || result.winner === "away";
+}
+
+function knockoutResultText(result) {
+  if (!knockoutResultComplete(result)) return "TBD";
+  const score = `${result.home} - ${result.away}`;
+  if (result.home !== result.away) return score;
+  return `${score} (${result.winner === "home" ? "home" : "away"} wins pens)`;
+}
 function resultEntryRow(match, kind, actual, disabled = false, label = "", displayNumber = match.id) {
-  const done = actual.home !== "" && actual.away !== "";
+  const done = kind === "knockout-result" ? knockoutResultComplete(actual) : actual.home !== "" && actual.away !== "";
   const detail = label ? `${label} - ${match.kickoff || "Time TBD"}` : (match.kickoff || "Time TBD");
+  const winnerSelect = kind === "knockout-result" ? knockoutWinnerSelect(match, actual, disabled) : "";
   return `
     <div class="resultRow ${done ? "resultDone" : ""} ${disabled ? "resultDisabled" : ""}">
       <div class="resultInfo">
@@ -875,6 +899,7 @@ function resultEntryRow(match, kind, actual, disabled = false, label = "", displ
         <span>:</span>
         <input class="score" data-kind="${kind}" data-match="${match.id}" data-side="away" value="${escapeHtml(actual.away)}" ${disabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
       </div>
+        ${winnerSelect}
     </div>
   `;
 }
@@ -962,6 +987,9 @@ function bindScoreInputs() {
       }
     });
   });
+  document.querySelectorAll("select.winnerSelect").forEach(select => {
+    select.addEventListener("change", () => saveScore(select.dataset.kind, select.dataset.match, true));
+  });
 }
 
 function matchById(matchId) {
@@ -990,9 +1018,10 @@ async function saveScore(kind, matchId, renderAfterSave = false) {
   }
   const home = homeField.value;
   const away = awayField.value;
+  const winner = document.querySelector(`select.winnerSelect[data-match="${matchId}"]`)?.value || "";
   if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away }, { render: renderAfterSave });
   if (kind === "result") await post("/api/result", { matchId, home, away }, { render: renderAfterSave });
-  if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away }, { render: renderAfterSave });
+  if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away, winner }, { render: renderAfterSave });
 }
 function pointsFor(player, match, actualOverride) {
   const pred = appState.predictions[player]?.[match.id] || {};
@@ -1045,7 +1074,7 @@ function renderKnockoutMatch(match) {
   const homeKnown = !match.home.startsWith("TBD");
   const awayKnown = !match.away.startsWith("TBD");
   const ready = homeKnown && awayKnown;
-  const done = ready && result.home !== "" && result.away !== "" && result.home !== result.away;
+  const done = ready && knockoutResultComplete(result);
   const started = hasMatchStarted(match.kickoff);
   const predictionDisabled = !ready || done || resultMode || started;
   const points = pointsFor(selectedPlayer, match, result);
@@ -1063,7 +1092,7 @@ function renderKnockoutMatch(match) {
       </div>
       <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       <div class="actual knockoutActual">
-        <span>Actual: ${done ? `${result.home} - ${result.away}` : "TBD"}</span>
+        <span>Actual: ${done ? knockoutResultText(result) : "TBD"}</span>
         <span class="points">${pointText}</span>
       </div>
       <small>${done ? `Winner: ${escapeHtml(winnerOf(match))}` : ready && !started ? "Ready for predictions" : started ? "Kickoff passed" : "Waiting for confirmed team"}</small>
@@ -1202,10 +1231,10 @@ function getKnockoutRounds(standings) {
   const round16 = pairRound(round32, [
     { id: 89, pair: [74, 77] },
     { id: 90, pair: [73, 75] },
-    { id: 91, pair: [83, 84] },
-    { id: 92, pair: [81, 82] },
-    { id: 93, pair: [76, 78] },
-    { id: 94, pair: [79, 80] },
+    { id: 91, pair: [76, 78] },
+    { id: 92, pair: [79, 80] },
+    { id: 93, pair: [83, 84] },
+    { id: 94, pair: [81, 82] },
     { id: 95, pair: [86, 88] },
     { id: 96, pair: [85, 87] },
   ]);
@@ -1256,14 +1285,24 @@ function loserOfMatch(matches, id) {
   if (!match) return `TBD Loser Match ${label}`;
   const result = appState.knockoutResults[String(id)] || {};
   if (match.home.startsWith("TBD") || match.away.startsWith("TBD")) return `TBD Loser Match ${label}`;
-  if (result.home === "" || result.away === "" || result.home === result.away) return `TBD Loser Match ${label}`;
+  if (result.home === "" || result.away === "") return `TBD Loser Match ${label}`;
+  if (result.home === result.away) {
+    if (result.winner === "home") return match.away;
+    if (result.winner === "away") return match.home;
+    return `TBD Loser Match ${label}`;
+  }
   return Number(result.home) < Number(result.away) ? match.home : match.away;
 }
 
 function winnerOf(match) {
   const result = appState.knockoutResults[String(match.id)] || {};
   if (match.home.startsWith("TBD") || match.away.startsWith("TBD")) return "";
-  if (result.home === "" || result.away === "" || result.home === result.away) return "";
+  if (result.home === "" || result.away === "") return "";
+  if (result.home === result.away) {
+    if (result.winner === "home") return match.home;
+    if (result.winner === "away") return match.away;
+    return "";
+  }
   return Number(result.home) > Number(result.away) ? match.home : match.away;
 }
 

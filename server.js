@@ -320,11 +320,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && req.url === "/api/knockout-result") {
-      const { matchId, home, away } = await parseBody(req);
+      const { matchId, home, away, winner } = await parseBody(req);
       const state = await readState();
       state.knockout ||= [];
       state.knockoutResults ||= {};
-      state.knockoutResults[String(matchId)] = { home: cleanScore(home), away: cleanScore(away) };
+      state.knockoutResults[String(matchId)] = { home: cleanScore(home), away: cleanScore(away), winner: cleanWinner(winner) };
       await writeState(state);
       return sendJson(res, 200, await publicState());
     }
@@ -335,6 +335,10 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 500, { error: error.message });
   }
 });
+
+function cleanWinner(value) {
+  return value === "home" || value === "away" ? value : "";
+}
 
 function cleanScore(value) {
   const text = String(value ?? "").replace(/\D/g, "").slice(0, 2);

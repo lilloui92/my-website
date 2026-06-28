@@ -766,3 +766,26 @@ textarea {
     font-size: 10px;
   }
 }
+
+.winnerSelect {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #b8c3cb;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #17202a;
+}
+
+.resultScore + .winnerSelect {
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .winnerSelect {
+    grid-column: 2 / 4;
+    width: 100%;
+    font-size: 11px;
+  }
+}

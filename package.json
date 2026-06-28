@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node audit.js"
   },
   "engines": {
     "node": ">=18"
