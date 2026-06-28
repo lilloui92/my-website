@@ -5,6 +5,21 @@ const seed = JSON.parse(fs.readFileSync("seed-data.json", "utf8"));
 const state = JSON.parse(fs.readFileSync("state.json", "utf8"));
 const monthNumbers = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6 };
 const failures = [];
+function scorePrediction(pred, actual) {
+  if (actual.home === "" || actual.away === "" || pred.home === "" || pred.away === "") return 0;
+  const ph = Number(pred.home), pa = Number(pred.away), ah = Number(actual.home), aa = Number(actual.away);
+  if ([ph, pa, ah, aa].some(Number.isNaN)) return 0;
+  const basePoints = ph === ah && pa === aa ? 2 : Math.sign(ph - pa) === Math.sign(ah - aa) ? 1 : 0;
+  const predictedDraw = pred.home !== "" && pred.away !== "" && Number(pred.home) === Number(pred.away);
+  const actualDrawWithWinner = actual.home !== "" && actual.away !== "" && Number(actual.home) === Number(actual.away) && (actual.winner === "home" || actual.winner === "away");
+  const penaltyBonus = predictedDraw && actualDrawWithWinner && pred.winner === actual.winner ? 1 : 0;
+  return basePoints + penaltyBonus;
+}
+
+function expectScore(label, pred, actual, expected) {
+  const got = scorePrediction(pred, actual);
+  if (got !== expected) fail(`${label}: expected ${expected}, got ${got}`);
+}
 
 function fail(message) {
   failures.push(message);
@@ -85,6 +100,22 @@ for (const [matchId, result] of Object.entries(state.knockoutResults || {})) {
 
 if (!appText.includes("function knockoutResultComplete") || !appText.includes("select.winnerSelect")) {
   fail("Knockout tied-result winner selector is missing");
+}
+
+if (!appText.includes("function penaltyBonus") || !appText.includes("data-kind=\"prediction\"") || !serverTextIncludesPredictionWinner()) {
+  fail("Penalty winner prediction saving/scoring support is missing");
+}
+
+expectScore("exact draw plus correct pens", { home: "1", away: "1", winner: "home" }, { home: "1", away: "1", winner: "home" }, 3);
+expectScore("different draw plus correct pens", { home: "0", away: "0", winner: "home" }, { home: "1", away: "1", winner: "home" }, 2);
+expectScore("different draw plus wrong pens", { home: "0", away: "0", winner: "away" }, { home: "1", away: "1", winner: "home" }, 1);
+expectScore("exact draw plus wrong pens", { home: "1", away: "1", winner: "away" }, { home: "1", away: "1", winner: "home" }, 2);
+expectScore("extra time win counts as normal score", { home: "2", away: "1", winner: "away" }, { home: "2", away: "1" }, 2);
+expectScore("wrong winner normal score", { home: "1", away: "2", winner: "away" }, { home: "2", away: "1" }, 0);
+
+function serverTextIncludesPredictionWinner() {
+  const serverText = fs.readFileSync("server.js", "utf8");
+  return serverText.includes("{ home: cleanScore(home), away: cleanScore(away), winner: cleanWinner(winner) }");
 }
 
 if (failures.length) {

@@ -287,7 +287,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && req.url === "/api/prediction") {
-      const { player, matchId, home, away } = await parseBody(req);
+      const { player, matchId, home, away, winner } = await parseBody(req);
       if (!seed.players.includes(player)) return sendJson(res, 400, { error: "Unknown player" });
       const state = await readState();
       const groupActual = state.actuals[String(matchId)] || {};
@@ -297,7 +297,7 @@ const server = http.createServer(async (req, res) => {
       if (resultEntered) return sendJson(res, 409, { error: "Result already entered" });
       if (hasMatchStarted(matchId)) return sendJson(res, 409, { error: "Match already started" });
       state.predictions[player] ||= {};
-      state.predictions[player][String(matchId)] = { home: cleanScore(home), away: cleanScore(away) };
+      state.predictions[player][String(matchId)] = { home: cleanScore(home), away: cleanScore(away), winner: cleanWinner(winner) };
       await writeState(state);
       return sendJson(res, 200, await publicState());
     }

@@ -856,13 +856,19 @@ function renderResultEntry() {
   `;
 }
 
+function winnerSelectOptions(match, selected) {
+  return `
+        <option value="">Winner if tied</option>
+        <option value="home" ${selected === "home" ? "selected" : ""}>${escapeHtml(match.home)} advances</option>
+        <option value="away" ${selected === "away" ? "selected" : ""}>${escapeHtml(match.away)} advances</option>
+  `;
+}
+
 function knockoutWinnerSelect(match, actual, disabled) {
   const selected = actual.winner === "home" || actual.winner === "away" ? actual.winner : "";
   return `
       <select class="winnerSelect" data-kind="knockout-result" data-match="${match.id}" ${disabled ? "disabled" : ""}>
-        <option value="">Winner if tied</option>
-        <option value="home" ${selected === "home" ? "selected" : ""}>${escapeHtml(match.home)} advances</option>
-        <option value="away" ${selected === "away" ? "selected" : ""}>${escapeHtml(match.away)} advances</option>
+        ${winnerSelectOptions(match, selected)}
       </select>
   `;
 }
@@ -963,11 +969,14 @@ function resultInputs(match, actual) {
 }
 
 function revealPredictions(match) {
+  const actual = appState.knockoutResults?.[String(match.id)] || appState.actuals?.[String(match.id)] || {};
+  const showPens = actual.home !== "" && actual.away !== "" && Number(actual.home) === Number(actual.away) && (actual.winner === "home" || actual.winner === "away");
   return `<div class="reveal">${
     appState.players.filter(player => player !== selectedPlayer).map(player => {
       const pred = appState.predictions[player]?.[match.id] || { home: "", away: "" };
       const shown = pred.home !== "" && pred.away !== "" ? `${pred.home}-${pred.away}` : "--";
-      return `${escapeHtml(player)}: ${shown}`;
+      const pens = showPens && (pred.winner === "home" || pred.winner === "away") ? `, pens: ${pred.winner === "home" ? match.home : match.away}` : "";
+      return `${escapeHtml(player)}: ${shown}${escapeHtml(pens)}`;
     }).join(" | ")
   }</div>`;
 }
@@ -1018,8 +1027,8 @@ async function saveScore(kind, matchId, renderAfterSave = false) {
   }
   const home = homeField.value;
   const away = awayField.value;
-  const winner = document.querySelector(`select.winnerSelect[data-match="${matchId}"]`)?.value || "";
-  if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away }, { render: renderAfterSave });
+  const winner = document.querySelector(`select.winnerSelect[data-kind="${kind}"][data-match="${matchId}"]`)?.value || "";
+  if (kind === "prediction") await post("/api/prediction", { player: selectedPlayer, matchId, home, away, winner }, { render: renderAfterSave });
   if (kind === "result") await post("/api/result", { matchId, home, away }, { render: renderAfterSave });
   if (kind === "knockout-result") await post("/api/knockout-result", { matchId, home, away, winner }, { render: renderAfterSave });
 }
@@ -1029,8 +1038,14 @@ function pointsFor(player, match, actualOverride) {
   if (actual.home === "" || actual.away === "" || pred.home === "" || pred.away === "") return 0;
   const ph = Number(pred.home), pa = Number(pred.away), ah = Number(actual.home), aa = Number(actual.away);
   if ([ph, pa, ah, aa].some(Number.isNaN)) return 0;
-  if (ph === ah && pa === aa) return 2;
-  return Math.sign(ph - pa) === Math.sign(ah - aa) ? 1 : 0;
+  const basePoints = ph === ah && pa === aa ? 2 : Math.sign(ph - pa) === Math.sign(ah - aa) ? 1 : 0;
+  return basePoints + penaltyBonus(pred, actual);
+}
+
+function penaltyBonus(pred, actual) {
+  const predictedDraw = pred.home !== "" && pred.away !== "" && Number(pred.home) === Number(pred.away);
+  const actualDrawWithWinner = actual.home !== "" && actual.away !== "" && Number(actual.home) === Number(actual.away) && (actual.winner === "home" || actual.winner === "away");
+  return predictedDraw && actualDrawWithWinner && pred.winner === actual.winner ? 1 : 0;
 }
 
 function renderKnockout() {
@@ -1090,6 +1105,9 @@ function renderKnockoutMatch(match) {
         <span class="versus">:</span>
         <input class="score" data-kind="prediction" data-match="${match.id}" data-side="away" value="${escapeHtml(prediction.away)}" ${predictionDisabled ? "disabled" : ""} inputmode="numeric" maxlength="2" placeholder="-">
       </div>
+      <select class="winnerSelect penaltyPick" data-kind="prediction" data-match="${match.id}" ${predictionDisabled ? "disabled" : ""}>
+        ${winnerSelectOptions(match, prediction.winner === "home" || prediction.winner === "away" ? prediction.winner : "")}
+      </select>
       <span class="slot ${awayKnown ? "known" : "unknown"}">${teamName(match.away)}</span>
       <div class="actual knockoutActual">
         <span>Actual: ${done ? knockoutResultText(result) : "TBD"}</span>

@@ -789,3 +789,9 @@ textarea {
     font-size: 11px;
   }
 }
+.penaltyPick {
+  width: 100%;
+  margin: 4px 0 6px;
+  background: #fffdf3;
+  border-color: rgba(255, 183, 3, 0.72);
+}
