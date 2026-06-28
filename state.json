@@ -1452,5 +1452,10 @@
     }
   },
   "knockout": [],
-  "knockoutResults": {}
+  "knockoutResults": {
+    "73": {
+      "home": "5",
+      "away": ""
+    }
+  }
 }
