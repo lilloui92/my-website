@@ -889,8 +889,7 @@ function knockoutDisplayNumber(match) {
 }
 
 function knockoutDisplayNumberById(id) {
-  const index = knockoutDisplayOrder.findIndex(item => String(item) === String(id));
-  return index === -1 ? id : index + 1;
+  return id;
 }
 
 function renderMatch(match) {
