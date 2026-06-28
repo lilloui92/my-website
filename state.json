@@ -875,8 +875,8 @@
         "away": "2"
       },
       "73": {
-        "home": "",
-        "away": "",
+        "home": "0",
+        "away": "2",
         "winner": "home"
       }
     },
