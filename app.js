@@ -37,6 +37,19 @@ const teamFlags = {
 };
 
 
+
+const thirdPlaceAllocationRules = {
+  BDEFIJKL: {
+    79: "E",
+    85: "J",
+    81: "B",
+    74: "D",
+    82: "I",
+    77: "F",
+    87: "L",
+    80: "K",
+  },
+};
 const thirdPlaceSlots = [
   { id: 74, groups: ["A", "B", "C", "D", "F"] },
   { id: 77, groups: ["C", "D", "F", "G", "H"] },
@@ -632,6 +645,12 @@ function actualForGroupMatch(match) {
 function getThirdPlaceAssignments(standings) {
   if (!standings.allGroupsComplete || standings.qualifiedThirds.length !== 8) return {};
   const teamsByGroup = Object.fromEntries(standings.qualifiedThirds.map(row => [row.group, row]));
+  const key = standings.qualifiedThirds.map(row => row.group).sort().join("");
+  const officialRule = thirdPlaceAllocationRules[key];
+  if (officialRule) {
+    return Object.fromEntries(Object.entries(officialRule).map(([matchId, group]) => [matchId, teamsByGroup[group]]));
+  }
+
   const qualifiedGroups = new Set(Object.keys(teamsByGroup));
   const slots = thirdPlaceSlots.map(slot => ({
     ...slot,
