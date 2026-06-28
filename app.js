@@ -546,8 +546,8 @@ const thirdPlaceSlots = [
   { id: 87, groups: ["D", "E", "I", "J", "L"] },
 ];
 const knockoutDisplayOrder = [
-  73, 74, 75, 76, 77, 78, 79, 80,
-  81, 82, 83, 84, 85, 86, 87, 88,
+  74, 77, 73, 75, 83, 84, 81, 82,
+  76, 78, 79, 80, 86, 88, 85, 87,
   89, 90, 91, 92, 93, 94, 95, 96,
   97, 98, 99, 100,
   101, 102,
@@ -889,7 +889,8 @@ function knockoutDisplayNumber(match) {
 }
 
 function knockoutDisplayNumberById(id) {
-  return id;
+  const index = knockoutDisplayOrder.findIndex(item => String(item) === String(id));
+  return index === -1 ? id : index + 1;
 }
 
 function renderMatch(match) {
