@@ -1459,8 +1459,9 @@
   "knockout": [],
   "knockoutResults": {
     "73": {
-      "home": "",
-      "away": ""
+      "home": "0",
+      "away": "",
+      "winner": ""
     },
     "74": {
       "home": "",
