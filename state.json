@@ -1018,6 +1018,11 @@
         "home": "1",
         "away": "1",
         "winner": "away"
+      },
+      "80": {
+        "home": "",
+        "away": "",
+        "winner": ""
       }
     },
     "Hatem": {
