@@ -398,6 +398,11 @@
         "home": "1",
         "away": "1",
         "winner": "away"
+      },
+      "96": {
+        "home": "",
+        "away": "1",
+        "winner": ""
       }
     },
     "Baba": {
